@@ -2,12 +2,56 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
+import { useSignIn, useOAuth } from '@clerk/clerk-expo';
+import * as WebBrowser from 'expo-web-browser';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
+    const { signIn, setActive, isLoaded } = useSignIn();
+    const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
+
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [errorMsg, setErrorMsg] = useState('');
+
+    const onSignInPress = React.useCallback(async () => {
+        if (!isLoaded) return;
+        setLoading(true);
+        setErrorMsg('');
+        try {
+            const signInAttempt = await signIn.create({
+                identifier: email,
+                password,
+            });
+            if (signInAttempt.status === 'complete') {
+                await setActive({ session: signInAttempt.createdSessionId });
+            } else {
+                console.error(signInAttempt);
+                setErrorMsg('Sign in failed. Check your details.');
+            }
+        } catch (err: any) {
+            console.error('Sign in error', err);
+            setErrorMsg(err?.errors?.[0]?.longMessage || 'An error occurred during sign in.');
+        } finally {
+            setLoading(false);
+        }
+    }, [isLoaded, email, password]);
+
+    const onPressGoogle = React.useCallback(async () => {
+        try {
+            const { createdSessionId, setActive } = await startOAuthFlow();
+            if (createdSessionId && setActive) {
+                await setActive({ session: createdSessionId });
+            }
+        } catch (err) {
+            console.error('OAuth error', err);
+            setErrorMsg('Google Sign In was cancelled or failed.');
+        }
+    }, []);
 
     return (
         <SafeAreaView className="flex-1 bg-background-light dark:bg-background-dark">
@@ -31,7 +75,10 @@ export default function LoginScreen() {
 
                         <View className="w-full">
                             {/* --- Social Login --- */}
-                            <TouchableOpacity className="w-full flex-row items-center justify-center gap-3 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 py-3 rounded-full shadow-sm mb-4">
+                            <TouchableOpacity
+                                onPress={onPressGoogle}
+                                className="w-full flex-row items-center justify-center gap-3 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 py-3 rounded-full shadow-sm mb-4"
+                            >
                                 <Svg width="20" height="20" viewBox="0 0 24 24">
                                     <Path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
                                     <Path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
@@ -47,6 +94,10 @@ export default function LoginScreen() {
                                 <Text className="mx-4 text-slate-400 text-sm font-medium">or email</Text>
                                 <View className="flex-1 h-[1px] bg-slate-200 dark:bg-zinc-800" />
                             </View>
+
+                            {errorMsg ? (
+                                <Text className="text-red-500 text-sm font-medium mb-3 text-center">{errorMsg}</Text>
+                            ) : null}
 
                             {/* --- Form Elements --- */}
                             <View className="mb-4 w-full">
@@ -104,8 +155,12 @@ export default function LoginScreen() {
                             </View>
 
                             {/* --- Main Action Button --- */}
-                            <TouchableOpacity className="w-full bg-primary py-4 rounded-full items-center shadow-md mb-8">
-                                <Text className="text-white font-bold text-base">Begin Your Journey</Text>
+                            <TouchableOpacity
+                                onPress={onSignInPress}
+                                disabled={loading}
+                                className={`w-full bg-primary py-4 rounded-full items-center shadow-md mb-8 ${loading ? 'opacity-70' : ''}`}
+                            >
+                                <Text className="text-white font-bold text-base">{loading ? 'Signing In...' : 'Begin Your Journey'}</Text>
                             </TouchableOpacity>
 
                             {/* --- Footer Link --- */}
