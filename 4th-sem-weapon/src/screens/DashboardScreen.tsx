@@ -3,12 +3,15 @@ import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Platform, Image
 import { MaterialIcons } from '@expo/vector-icons';
 import { useUser, useAuth } from '@clerk/clerk-expo';
 import { createClerkSupabaseClient } from '../database/supabaseClient';
+import { useNavigation } from '@react-navigation/native';
 
 export default function DashboardScreen() {
 
     const { user } = useUser();
     const { getToken } = useAuth();
     const [playerStats, setPlayerStats] = useState<any>(null);
+
+    const navigation = useNavigation<any>();
 
     useEffect(() => {
         async function syncPlayerToDatabase() {
@@ -210,7 +213,10 @@ export default function DashboardScreen() {
                     </View>
                     <Text className="text-[10px] font-medium text-text-main">Focus</Text>
                 </TouchableOpacity>
-                <TouchableOpacity className="items-center gap-1 opacity-60">
+                <TouchableOpacity
+                    className="items-center gap-1 opacity-60"
+                    onPress={() => navigation.navigate('ProfileScreen')}
+                >
                     <View className="h-10 w-14 rounded-2xl items-center justify-center">
                         <MaterialIcons name="person" size={24} color="#2C3E50" />
                     </View>
