@@ -192,37 +192,6 @@ export default function DashboardScreen() {
                     </View>
                 </View>
             </ScrollView>
-
-            {/* Bottom Nav */}
-            <View className="absolute bottom-0 left-0 right-0 bg-background-light/95 dark:bg-background-dark/95 border-t border-primary/10 pb-6 pt-3 px-6 flex-row justify-around items-center">
-                <TouchableOpacity className="items-center gap-1">
-                    <View className="h-10 w-14 rounded-2xl bg-primary/10 items-center justify-center">
-                        <MaterialIcons name="home" size={24} color="#6B8E23" />
-                    </View>
-                    <Text className="text-[10px] font-medium text-primary">Dojo</Text>
-                </TouchableOpacity>
-                <TouchableOpacity className="items-center gap-1 opacity-60">
-                    <View className="h-10 w-14 rounded-2xl items-center justify-center">
-                        <MaterialIcons name="map" size={24} color="#2C3E50" />
-                    </View>
-                    <Text className="text-[10px] font-medium text-text-main">Quest Log</Text>
-                </TouchableOpacity>
-                <TouchableOpacity className="items-center gap-1 opacity-60">
-                    <View className="h-10 w-14 rounded-2xl items-center justify-center">
-                        <MaterialIcons name="timer" size={24} color="#2C3E50" />
-                    </View>
-                    <Text className="text-[10px] font-medium text-text-main">Focus</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    className="items-center gap-1 opacity-60"
-                    onPress={() => navigation.navigate('ProfileScreen')}
-                >
-                    <View className="h-10 w-14 rounded-2xl items-center justify-center">
-                        <MaterialIcons name="person" size={24} color="#2C3E50" />
-                    </View>
-                    <Text className="text-[10px] font-medium text-text-main">Profile</Text>
-                </TouchableOpacity>
-            </View>
         </SafeAreaView>
     );
 }

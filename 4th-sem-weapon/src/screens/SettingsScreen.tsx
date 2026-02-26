@@ -6,6 +6,7 @@ import { useColorScheme } from "nativewind";
 
 export default function SettingsScreen({ navigation }: any) {
     const { colorScheme, setColorScheme } = useColorScheme();
+    // Default to 'light' if colorScheme is undefined on first load
     const isDarkMode = colorScheme === 'dark';
 
     const toggleDarkMode = () => {
