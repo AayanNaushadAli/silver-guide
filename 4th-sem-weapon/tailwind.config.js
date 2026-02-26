@@ -3,6 +3,7 @@ module.exports = {
   // This tells Tailwind to look inside App.tsx and your entire src folder
   content: ["./App.{js,jsx,ts,tsx}", "./src/**/*.{js,jsx,ts,tsx}"],
   presets: [require("nativewind/preset")],
+  darkMode: "class",
   theme: {
     extend: {
       colors: {

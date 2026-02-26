@@ -3,9 +3,22 @@ import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image } from 'r
 import { MaterialIcons } from '@expo/vector-icons';
 import Svg, { Polygon, Line, Text as SvgText } from 'react-native-svg';
 import { useUser } from '@clerk/clerk-expo';
+import { useColorScheme } from 'nativewind';
 
 export default function ProfileScreen({ navigation }: any) {
     const { user } = useUser();
+    const { colorScheme } = useColorScheme();
+    const isDarkMode = colorScheme === 'dark';
+
+    // Radar Chart Colors
+    const radarGridColor = isDarkMode ? '#2a3020' : '#E2E8F0';
+    const radarDataFill = isDarkMode ? 'rgba(107, 142, 35, 0.2)' : 'rgba(107, 142, 35, 0.15)';
+    const radarDataStroke = '#6B8E23';
+    const radarTextColor = isDarkMode ? '#95A5A6' : '#2C3E50';
+
+    // Navigation Icons Unfocused Color
+    const navIconColor = isDarkMode ? '#95A5A6' : '#64748b';
+
 
     // Mock Badges Data for the grid
     const badges = [
@@ -22,9 +35,8 @@ export default function ProfileScreen({ navigation }: any) {
             {/* --- Sticky Header --- */}
             <View className="px-6 pt-4 pb-2 flex-row items-center justify-between border-b border-primary/10">
                 <Text className="text-xl font-bold text-text-main dark:text-white font-display">Skill Tree</Text>
-                {/* This gear will eventually open the Settings page for Logout */}
-                <TouchableOpacity onPress={() => console.log('Open Settings')} className="p-2">
-                    <MaterialIcons name="settings" size={24} color="#95A5A6" />
+                <TouchableOpacity onPress={() => navigation.navigate('Settings')} className="p-2">
+                    <MaterialIcons name="settings" size={24} color={navIconColor} />
                 </TouchableOpacity>
             </View>
 
@@ -63,19 +75,19 @@ export default function ProfileScreen({ navigation }: any) {
                     <View className="w-60 h-60 items-center justify-center">
                         <Svg height="100%" width="100%" viewBox="0 0 100 100">
                             {/* Background Grid */}
-                            <Polygon points="50,10 90,80 10,80" fill="none" stroke="#2a3020" strokeWidth="0.5" />
-                            <Polygon points="50,30 70,65 30,65" fill="none" stroke="#2a3020" strokeWidth="0.5" />
-                            <Line x1="50" y1="50" x2="50" y2="10" stroke="#2a3020" strokeWidth="0.5" />
-                            <Line x1="50" y1="50" x2="90" y2="80" stroke="#2a3020" strokeWidth="0.5" />
-                            <Line x1="50" y1="50" x2="10" y2="80" stroke="#2a3020" strokeWidth="0.5" />
+                            <Polygon points="50,10 90,80 10,80" fill="none" stroke={radarGridColor} strokeWidth="0.5" />
+                            <Polygon points="50,30 70,65 30,65" fill="none" stroke={radarGridColor} strokeWidth="0.5" />
+                            <Line x1="50" y1="50" x2="50" y2="10" stroke={radarGridColor} strokeWidth="0.5" />
+                            <Line x1="50" y1="50" x2="90" y2="80" stroke={radarGridColor} strokeWidth="0.5" />
+                            <Line x1="50" y1="50" x2="10" y2="80" stroke={radarGridColor} strokeWidth="0.5" />
 
                             {/* The Data Shape */}
-                            <Polygon points="50,15 80,75 25,65" fill="rgba(107, 142, 35, 0.2)" stroke="#6B8E23" strokeWidth="2" />
+                            <Polygon points="50,15 80,75 25,65" fill={radarDataFill} stroke={radarDataStroke} strokeWidth="2" />
 
                             {/* Labels */}
-                            <SvgText x="50" y="5" fontSize="6" fill="#95A5A6" fontWeight="bold" textAnchor="middle">FOCUS</SvgText>
-                            <SvgText x="95" y="85" fontSize="6" fill="#95A5A6" fontWeight="bold" textAnchor="middle">WISDOM</SvgText>
-                            <SvgText x="5" y="85" fontSize="6" fill="#95A5A6" fontWeight="bold" textAnchor="middle">MANA</SvgText>
+                            <SvgText x="50" y="8" fontSize="6" fill={radarTextColor} fontWeight="bold" textAnchor="middle">FOCUS</SvgText>
+                            <SvgText x="98" y="85" fontSize="6" fill={radarTextColor} fontWeight="bold" textAnchor="end">WISDOM</SvgText>
+                            <SvgText x="2" y="85" fontSize="6" fill={radarTextColor} fontWeight="bold" textAnchor="start">MANA</SvgText>
                         </Svg>
                     </View>
                 </View>
@@ -108,7 +120,7 @@ export default function ProfileScreen({ navigation }: any) {
                     {badges.map((badge) => (
                         <View key={badge.id} className={`w-[30%] items-center mb-6 ${!badge.unlocked && 'opacity-40 grayscale'}`}>
                             <View className={`w-20 h-20 rounded-2xl ${badge.bg} items-center justify-center mb-2 shadow-sm border border-primary/10`}>
-                                <MaterialIcons name={badge.icon as any} size={36} className={badge.color} color={badge.unlocked ? undefined : '#95A5A6'} />
+                                <MaterialIcons name={badge.icon as any} size={36} className={badge.color} color={badge.unlocked ? undefined : navIconColor} />
                             </View>
                             <Text className="text-[10px] font-bold text-center text-text-main dark:text-white mt-1 font-body leading-tight">{badge.name}</Text>
                         </View>
@@ -121,21 +133,21 @@ export default function ProfileScreen({ navigation }: any) {
             <View className="absolute bottom-0 left-0 right-0 bg-background-light/95 dark:bg-background-dark/95 border-t border-primary/10 pb-6 pt-3 px-6 flex-row justify-around items-center">
                 <TouchableOpacity onPress={() => navigation.navigate('DashboardScreen')} className="items-center gap-1 opacity-60">
                     <View className="h-10 w-14 rounded-2xl items-center justify-center">
-                        <MaterialIcons name="home" size={24} color="#2C3E50" />
+                        <MaterialIcons name="home" size={24} color={navIconColor} />
                     </View>
-                    <Text className="text-[10px] font-medium text-text-main">Dojo</Text>
+                    <Text className="text-[10px] font-medium text-text-main dark:text-white">Dojo</Text>
                 </TouchableOpacity>
                 <TouchableOpacity className="items-center gap-1 opacity-60">
                     <View className="h-10 w-14 rounded-2xl items-center justify-center">
-                        <MaterialIcons name="map" size={24} color="#2C3E50" />
+                        <MaterialIcons name="map" size={24} color={navIconColor} />
                     </View>
-                    <Text className="text-[10px] font-medium text-text-main">Quest Log</Text>
+                    <Text className="text-[10px] font-medium text-text-main dark:text-white">Quest Log</Text>
                 </TouchableOpacity>
                 <TouchableOpacity className="items-center gap-1 opacity-60">
                     <View className="h-10 w-14 rounded-2xl items-center justify-center">
-                        <MaterialIcons name="timer" size={24} color="#2C3E50" />
+                        <MaterialIcons name="timer" size={24} color={navIconColor} />
                     </View>
-                    <Text className="text-[10px] font-medium text-text-main">Focus</Text>
+                    <Text className="text-[10px] font-medium text-text-main dark:text-white">Focus</Text>
                 </TouchableOpacity>
                 <TouchableOpacity className="items-center gap-1">
                     <View className="h-10 w-14 rounded-2xl bg-primary/10 items-center justify-center">

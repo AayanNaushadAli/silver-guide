@@ -149,7 +149,7 @@ export default function DashboardScreen() {
                     <Text className="text-lg font-bold text-text-main dark:text-white font-display mb-4 px-1">Side Quests</Text>
 
                     {/* Item 1 */}
-                    <TouchableOpacity className="flex-row items-center gap-4 p-4 bg-white dark:bg-background-dark rounded-xl border border-primary/10 shadow-sm mb-3">
+                    <TouchableOpacity className="flex-row items-center gap-4 p-4 bg-surface dark:bg-background-dark rounded-xl border border-primary/10 shadow-sm mb-3">
                         <View className="h-10 w-10 rounded-full bg-blue-50 dark:bg-blue-900/20 items-center justify-center">
                             <MaterialIcons name="functions" size={20} color="#3b82f6" />
                         </View>
@@ -164,7 +164,7 @@ export default function DashboardScreen() {
                     </TouchableOpacity>
 
                     {/* Item 2 */}
-                    <TouchableOpacity className="flex-row items-center gap-4 p-4 bg-white dark:bg-background-dark rounded-xl border border-primary/10 shadow-sm mb-3">
+                    <TouchableOpacity className="flex-row items-center gap-4 p-4 bg-surface dark:bg-background-dark rounded-xl border border-primary/10 shadow-sm mb-3">
                         <View className="h-10 w-10 rounded-full bg-purple-50 dark:bg-purple-900/20 items-center justify-center">
                             <MaterialIcons name="mail" size={20} color="#a855f7" />
                         </View>

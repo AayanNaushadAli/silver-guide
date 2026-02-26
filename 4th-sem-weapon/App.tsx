@@ -8,6 +8,7 @@ import './global.css';
 
 import ProfileScreen from './src/screens/ProfileScreen';
 import LoginScreen from './src/screens/LoginScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 
 const tokenCache = {
@@ -54,6 +55,7 @@ export default function App() {
               <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="DashboardScreen" component={DashboardScreen} />
                 <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
+                <Stack.Screen name="Settings" component={SettingsScreen} />
               </Stack.Navigator>
             </SignedIn>
             <SignedOut>
