@@ -5,6 +5,9 @@ import { useUser, useAuth } from '@clerk/clerk-expo';
 import { createClerkSupabaseClient } from '../database/supabaseClient';
 import { useNavigation } from '@react-navigation/native';
 
+import FloatingMenu from '../components/FloatingMenu';
+
+
 export default function DashboardScreen() {
 
     const { user } = useUser();
@@ -71,9 +74,14 @@ export default function DashboardScreen() {
                             </Text>
                         </View>
                     </View>
-                    <View className="flex-row items-center gap-1.5 bg-surface dark:bg-surface-dark px-3 py-1.5 rounded-full border border-primary/10">
-                        <Text className="text-sm">🔥</Text>
-                        <Text className="text-sm font-bold text-text-main dark:text-white font-mono">14</Text>
+                    <View className="flex-row items-center gap-3">
+                        <View className="flex-row items-center gap-1.5 bg-surface dark:bg-surface-dark px-3 py-1.5 rounded-full border border-primary/10 mr-1">
+                            <Text className="text-sm">🔥</Text>
+                            <Text className="text-sm font-bold text-text-main dark:text-white font-mono">14</Text>
+                        </View>
+                        <TouchableOpacity onPress={() => navigation.navigate('Settings')} className="p-1">
+                            <MaterialIcons name="settings" size={24} color="#6B8E23" />
+                        </TouchableOpacity>
                     </View>
                 </View>
 
@@ -192,6 +200,7 @@ export default function DashboardScreen() {
                     </View>
                 </View>
             </ScrollView>
+            <FloatingMenu />
         </SafeAreaView>
     );
 }

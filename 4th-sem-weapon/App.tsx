@@ -18,8 +18,9 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 
 const PlaceholderScreen = ({ name }: { name: string }) => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-    <Text style={{ fontSize: 24, fontWeight: 'bold' }}>{name}</Text>
+  <View className="flex-1 justify-center items-center bg-background-light dark:bg-background-dark">
+    <Text className="text-2xl font-bold text-text-main dark:text-white font-display">{name}</Text>
+    <Text className="text-text-muted font-body mt-2">Chamber under construction...</Text>
   </View>
 );
 
@@ -102,7 +103,7 @@ function MainTabs() {
               className="bg-[#6B8E23] w-14 h-14 rounded-full items-center justify-center shadow-lg -mt-6 border-4"
               style={{ borderColor: isDark ? '#1c2111' : '#FDFCF5' }}
             >
-              <MaterialIcons name="add" size={32} color="white" />
+              <MaterialIcons name="cloud-upload" size={32} color="white" />
             </View>
           )
         }}
