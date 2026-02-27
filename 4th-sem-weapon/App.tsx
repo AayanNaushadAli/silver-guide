@@ -16,6 +16,12 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
+import LeaderboardScreen from './src/screens/LeaderboardScreen';
+import ChatScreen from './src/screens/ChatScreen';
+import QuestLogScreen from './src/screens/QuestLogScreen';
+import AddQuestScreen from './src/screens/AddQuestScreen';
+import FocusScreen from './src/screens/FocusScreen';
+
 
 const PlaceholderScreen = ({ name }: { name: string }) => (
   <View className="flex-1 justify-center items-center bg-background-light dark:bg-background-dark">
@@ -70,6 +76,7 @@ function MainTabs() {
       id={undefined}
       screenOptions={{
         headerShown: false,
+        tabBarHideOnKeyboard: true, // This keeps the tab bar down when typing
         tabBarStyle: {
           backgroundColor: isDark ? '#1c2111' : '#FDFCF5',
           borderTopColor: isDark ? '#2a3020' : '#F4F1EA',
@@ -88,7 +95,7 @@ function MainTabs() {
       />
       <Tab.Screen
         name="Quest"
-        component={() => <PlaceholderScreen name="Quest Log" />}
+        component={QuestLogScreen}
         options={{ tabBarIcon: ({ color }) => <MaterialIcons name="map" size={24} color={color} /> }}
       />
 
@@ -111,8 +118,11 @@ function MainTabs() {
 
       <Tab.Screen
         name="Chat"
-        component={() => <PlaceholderScreen name="AI Oracle" />}
-        options={{ tabBarIcon: ({ color }) => <MaterialIcons name="smart-toy" size={24} color={color} /> }}
+        component={ChatScreen}
+        options={{
+          tabBarStyle: { display: 'none' },
+          tabBarIcon: ({ color }) => <MaterialIcons name="smart-toy" size={24} color={color} />
+        }}
       />
       <Tab.Screen
         name="Profile"
@@ -154,7 +164,14 @@ export default function App() {
             <SignedIn>
               <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="MainTabs" component={MainTabs} />
+                <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
                 <Stack.Screen name="Settings" component={SettingsScreen} />
+                <Stack.Screen name="Focus" component={FocusScreen} options={{ presentation: 'modal' }} />
+                <Stack.Screen
+                  name="AddQuest"
+                  component={AddQuestScreen}
+                  options={{ presentation: 'modal' }}
+                />
               </Stack.Navigator>
             </SignedIn>
             <SignedOut>

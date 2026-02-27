@@ -82,14 +82,17 @@ export default function FloatingMenu() {
 
     return (
         <View
-            className="absolute bottom-3 right-6 items-center rounded-full shadow-lg border-4"
+            className="absolute bottom-5 right-6 items-center rounded-full shadow-lg border-4"
             style={{ borderColor: isDark ? 'rgba(107, 142, 35, 0.4)' : 'rgba(107, 142, 35, 0.2)' }}
         >
 
             {/* 🥈 Leaderboard Button (Popping out) */}
             <Animated.View style={[leaderboardStyle, { position: 'absolute' }]}>
                 <TouchableOpacity
-                    onPress={() => { toggleMenu(); console.log("Navigate to Leaderboard"); }}
+                    onPress={() => {
+                        toggleMenu();
+                        navigation.navigate('Leaderboard'); // 👈 Teleports to your new screen
+                    }}
                     className="w-12 h-12 bg-white dark:bg-surface-dark rounded-full items-center justify-center shadow-lg border border-primary/20"
                 >
                     <MaterialIcons name="leaderboard" size={20} color="#E67E22" />
@@ -99,7 +102,10 @@ export default function FloatingMenu() {
             {/* ⏱️ Focus Timer Button (Popping out higher) */}
             <Animated.View style={[focusStyle, { position: 'absolute' }]}>
                 <TouchableOpacity
-                    onPress={() => { toggleMenu(); console.log("Navigate to Focus"); }}
+                    onPress={() => {
+                        toggleMenu();
+                        navigation.navigate('Focus');
+                    }}
                     className="w-12 h-12 bg-white dark:bg-surface-dark rounded-full items-center justify-center shadow-lg border border-primary/20"
                 >
                     <MaterialIcons name="timer" size={20} color="#3b82f6" />
@@ -107,12 +113,20 @@ export default function FloatingMenu() {
             </Animated.View>
 
             {/* Aura Filler Rings */}
-            {!isOpen && (
-                <>
-                    <Animated.View style={[auraStyle, { position: 'absolute' }]} className="w-14 h-14 bg-primary/40 rounded-full" />
-                    <Animated.View style={[auraStyle2, { position: 'absolute' }]} className="w-14 h-14 bg-primary/20 rounded-full" />
-                </>
-            )}
+            {
+                !isOpen && (
+                    <>
+                        <Animated.View
+                            style={[auraStyle, { position: 'absolute' }]}
+                            className={`w-14 h-14 rounded-full ${isDark ? 'bg-primary/40' : 'bg-gold/40'}`}
+                        />
+                        <Animated.View
+                            style={[auraStyle2, { position: 'absolute' }]}
+                            className={`w-14 h-14 rounded-full ${isDark ? 'bg-primary/20' : 'bg-gold/20'}`}
+                        />
+                    </>
+                )
+            }
 
             {/* 🌟 Main Trigger Button */}
             <TouchableOpacity onPress={toggleMenu} activeOpacity={0.8}>
@@ -120,10 +134,14 @@ export default function FloatingMenu() {
                     style={[rotation]}
                     className="w-14 h-14 bg-primary rounded-full items-center justify-center shadow-xl border-4 border-white/20"
                 >
-                    <MaterialIcons name="add" size={38} color="white" />
+                    <MaterialIcons
+                        name={isOpen ? "close" : "bolt"}
+                        size={38}
+                        color={isDark ? "white" : "#F1C40F"}
+                    />
                 </Animated.View>
             </TouchableOpacity>
 
-        </View>
+        </View >
     );
 }

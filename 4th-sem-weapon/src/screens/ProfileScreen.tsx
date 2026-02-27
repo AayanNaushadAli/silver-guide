@@ -4,7 +4,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import Svg, { Polygon, Line, Text as SvgText } from 'react-native-svg';
 import { useUser } from '@clerk/clerk-expo';
 import { useColorScheme } from 'nativewind';
-import FloatingMenu from '../components/FloatingMenu';
 
 export default function ProfileScreen({ navigation }: any) {
     const { user } = useUser();
@@ -129,7 +128,6 @@ export default function ProfileScreen({ navigation }: any) {
                 </View>
 
             </ScrollView>
-            <FloatingMenu />
         </SafeAreaView>
     );
 }
