@@ -6,6 +6,7 @@ import { createClerkSupabaseClient } from '../database/supabaseClient';
 import { useNavigation } from '@react-navigation/native';
 
 import FloatingMenu from '../components/FloatingMenu';
+import { useQuests } from '../context/QuestContext';
 
 
 export default function DashboardScreen() {
@@ -50,6 +51,14 @@ export default function DashboardScreen() {
 
 
 
+    const { quests, totalXP, getProgress } = useQuests();
+
+    // Pick the first quest as the "Daily Mission" and the rest as "Side Quests"
+    const dailyMission = quests[0];
+    const sideQuests = quests.slice(1);
+    const xpForNextLevel = 2000;
+    const xpPercent = Math.min((totalXP / xpForNextLevel) * 100, 100);
+
     return (
         <SafeAreaView className="flex-1 bg-background-light dark:bg-background-dark">
             {/* Sticky Header */}
@@ -77,7 +86,7 @@ export default function DashboardScreen() {
                     <View className="flex-row items-center gap-3">
                         <View className="flex-row items-center gap-1.5 bg-surface dark:bg-surface-dark px-3 py-1.5 rounded-full border border-primary/10 mr-1">
                             <Text className="text-sm">🔥</Text>
-                            <Text className="text-sm font-bold text-text-main dark:text-white font-mono">14</Text>
+                            <Text className="text-sm font-bold text-text-main dark:text-white font-mono">{playerStats?.streak_days || 0}</Text>
                         </View>
                         <TouchableOpacity onPress={() => navigation.navigate('Settings')} className="p-1">
                             <MaterialIcons name="settings" size={24} color="#6B8E23" />
@@ -88,11 +97,11 @@ export default function DashboardScreen() {
                 {/* XP Bar */}
                 <View className="w-full">
                     <View className="flex-row justify-between mb-1.5">
-                        <Text className="text-[10px] text-text-muted font-mono">1450 XP</Text>
-                        <Text className="text-[10px] text-text-muted font-mono">2000 XP</Text>
+                        <Text className="text-[10px] text-text-muted font-mono">{totalXP} XP</Text>
+                        <Text className="text-[10px] text-text-muted font-mono">{xpForNextLevel} XP</Text>
                     </View>
                     <View className="h-2 w-full bg-surface dark:bg-surface-dark rounded-full overflow-hidden border border-primary/5">
-                        <View className="h-full bg-gold rounded-full" style={{ width: '72%' }} />
+                        <View className="h-full bg-gold rounded-full" style={{ width: `${xpPercent}%` }} />
                     </View>
                 </View>
             </View>
@@ -118,86 +127,68 @@ export default function DashboardScreen() {
                 </View>
 
                 {/* Daily Mission */}
-                <View className="mb-8">
-                    <View className="flex-row items-center justify-between mb-4">
-                        <Text className="text-xl font-bold text-text-main dark:text-white font-display">Daily Mission</Text>
-                        <Text className="text-[10px] font-mono text-text-muted bg-surface dark:bg-surface-dark px-2 py-1 rounded-md border border-primary/10">PRIORITY: HIGH</Text>
+                {dailyMission && (
+                    <View className="mb-8">
+                        <View className="flex-row items-center justify-between mb-4">
+                            <Text className="text-xl font-bold text-text-main dark:text-white font-display">Daily Mission</Text>
+                            <Text className="text-[10px] font-mono text-text-muted bg-surface dark:bg-surface-dark px-2 py-1 rounded-md border border-primary/10">PRIORITY: HIGH</Text>
+                        </View>
+
+                        <TouchableOpacity
+                            onPress={() => navigation.navigate('Quest')}
+                            className="bg-surface dark:bg-surface-dark rounded-2xl p-6 border border-primary/5 shadow-sm active:opacity-80 transition-opacity">
+                            <View className="flex-row items-center gap-2 mb-2">
+                                <Text className="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Quest Line: {dailyMission.title}</Text>
+                            </View>
+                            <Text className="text-2xl font-bold text-text-main dark:text-white leading-tight font-display mb-2">
+                                {dailyMission.tasks.find(t => !t.completed)?.title || 'All Tasks Complete!'}
+                            </Text>
+                            <Text className="text-text-muted text-sm font-body leading-relaxed mb-6">
+                                Progress: {getProgress(dailyMission)}% complete • {dailyMission.tasks.filter(t => !t.completed).length} tasks remaining
+                            </Text>
+
+                            <View className="flex-row items-center gap-4 mb-6">
+                                <View className="flex-row items-center gap-1.5 text-text-muted">
+                                    <MaterialIcons name="schedule" size={16} color="#95A5A6" />
+                                    <Text className="text-xs font-mono text-text-muted">{dailyMission.deadline}</Text>
+                                </View>
+                                <View className="flex-row items-center gap-1.5 text-gold">
+                                    <MaterialIcons name="stars" size={16} color="#F1C40F" />
+                                    <Text className="text-xs font-mono font-bold text-gold">+{dailyMission.tasks.reduce((s, t) => s + t.xp, 0)} XP</Text>
+                                </View>
+                            </View>
+
+                            <View className="w-full bg-primary py-4 rounded-full items-center shadow-sm flex-row justify-center gap-2">
+                                <MaterialIcons name="play-circle-outline" size={20} color="white" />
+                                <Text className="text-white font-bold font-display tracking-wider">ENGAGE MISSION</Text>
+                            </View>
+                        </TouchableOpacity>
+                        <Text className="text-center text-xs text-text-muted italic font-body opacity-60 mt-4">"Consistency is the path to mastery."</Text>
                     </View>
-
-                    <TouchableOpacity className="bg-surface dark:bg-surface-dark rounded-2xl p-6 border border-primary/5 shadow-sm active:opacity-80 transition-opacity">
-                        <View className="flex-row items-center gap-2 mb-2">
-                            <Text className="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Quest Line: Thermodynamics</Text>
-                        </View>
-                        <Text className="text-2xl font-bold text-text-main dark:text-white leading-tight font-display mb-2">Defeat Thermo Chapter 4</Text>
-                        <Text className="text-text-muted text-sm font-body leading-relaxed mb-6">
-                            Master the Second Law of Thermodynamics and entropy calculations before the exam boss.
-                        </Text>
-
-                        <View className="flex-row items-center gap-4 mb-6">
-                            <View className="flex-row items-center gap-1.5 text-text-muted">
-                                <MaterialIcons name="schedule" size={16} color="#95A5A6" />
-                                <Text className="text-xs font-mono text-text-muted">2h 30m</Text>
-                            </View>
-                            <View className="flex-row items-center gap-1.5 text-gold">
-                                <MaterialIcons name="stars" size={16} color="#F1C40F" />
-                                <Text className="text-xs font-mono font-bold text-gold">+500 XP</Text>
-                            </View>
-                        </View>
-
-                        <View className="w-full bg-primary py-4 rounded-full items-center shadow-sm flex-row justify-center gap-2">
-                            <MaterialIcons name="play-circle-outline" size={20} color="white" />
-                            <Text className="text-white font-bold font-display tracking-wider">ENGAGE MISSION</Text>
-                        </View>
-                    </TouchableOpacity>
-                    <Text className="text-center text-xs text-text-muted italic font-body opacity-60 mt-4">"Consistency is the path to mastery."</Text>
-                </View>
+                )}
 
                 {/* Side Quests */}
                 <View className="mb-6">
                     <Text className="text-lg font-bold text-text-main dark:text-white font-display mb-4 px-1">Side Quests</Text>
 
-                    {/* Item 1 */}
-                    <TouchableOpacity className="flex-row items-center gap-4 p-4 bg-surface dark:bg-background-dark rounded-xl border border-primary/10 shadow-sm mb-3">
-                        <View className="h-10 w-10 rounded-full bg-blue-50 dark:bg-blue-900/20 items-center justify-center">
-                            <MaterialIcons name="functions" size={20} color="#3b82f6" />
-                        </View>
-                        <View className="flex-1">
-                            <Text className="text-sm font-bold text-text-main dark:text-white">Review Calc III Integration</Text>
-                            <View className="flex-row items-center gap-2 mt-1">
-                                <Text className="text-[10px] font-mono text-text-muted bg-surface dark:bg-surface-dark px-1.5 rounded">30m</Text>
-                                <Text className="text-[10px] font-mono text-gold font-medium">+50 XP</Text>
+                    {sideQuests.map((quest) => (
+                        <TouchableOpacity
+                            key={quest.id}
+                            onPress={() => navigation.navigate('Quest')}
+                            className="flex-row items-center gap-4 p-4 bg-surface dark:bg-background-dark rounded-xl border border-primary/10 shadow-sm mb-3">
+                            <View className="h-10 w-10 rounded-full items-center justify-center" style={{ backgroundColor: quest.iconColor + '15' }}>
+                                <MaterialIcons name={quest.icon as any} size={20} color={quest.iconColor} />
                             </View>
-                        </View>
-                        <MaterialIcons name="chevron-right" size={20} color="#95A5A6" />
-                    </TouchableOpacity>
-
-                    {/* Item 2 */}
-                    <TouchableOpacity className="flex-row items-center gap-4 p-4 bg-surface dark:bg-background-dark rounded-xl border border-primary/10 shadow-sm mb-3">
-                        <View className="h-10 w-10 rounded-full bg-purple-50 dark:bg-purple-900/20 items-center justify-center">
-                            <MaterialIcons name="mail" size={20} color="#a855f7" />
-                        </View>
-                        <View className="flex-1">
-                            <Text className="text-sm font-bold text-text-main dark:text-white">Email Professor about Lab</Text>
-                            <View className="flex-row items-center gap-2 mt-1">
-                                <Text className="text-[10px] font-mono text-text-muted bg-surface dark:bg-surface-dark px-1.5 rounded">5m</Text>
-                                <Text className="text-[10px] font-mono text-gold font-medium">+20 XP</Text>
+                            <View className="flex-1">
+                                <Text className="text-sm font-bold text-text-main dark:text-white">{quest.title}</Text>
+                                <View className="flex-row items-center gap-2 mt-1">
+                                    <Text className="text-[10px] font-mono text-text-muted bg-surface dark:bg-surface-dark px-1.5 rounded">{getProgress(quest)}%</Text>
+                                    <Text className="text-[10px] font-mono text-gold font-medium">+{quest.tasks.reduce((s, t) => s + t.xp, 0)} XP</Text>
+                                </View>
                             </View>
-                        </View>
-                        <MaterialIcons name="chevron-right" size={20} color="#95A5A6" />
-                    </TouchableOpacity>
-
-                    {/* Item 3 Completed */}
-                    <View className="flex-row items-center gap-4 p-4 bg-surface/40 dark:bg-surface-dark/40 rounded-xl opacity-60">
-                        <View className="h-10 w-10 rounded-full bg-primary/20 items-center justify-center">
-                            <MaterialIcons name="check" size={20} color="#6B8E23" />
-                        </View>
-                        <View className="flex-1">
-                            <Text className="text-sm font-bold text-text-main dark:text-white line-through">Submit Weekly Reflection</Text>
-                            <View className="flex-row items-center gap-2 mt-1">
-                                <Text className="text-[10px] font-mono text-primary font-medium">Completed</Text>
-                            </View>
-                        </View>
-                    </View>
+                            <MaterialIcons name="chevron-right" size={20} color="#95A5A6" />
+                        </TouchableOpacity>
+                    ))}
                 </View>
             </ScrollView>
             <FloatingMenu />

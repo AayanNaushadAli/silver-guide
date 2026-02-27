@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, SafeAreaView, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
+import { useQuests } from '../context/QuestContext';
 
 export default function AddQuestScreen({ navigation }: any) {
     const { colorScheme } = useColorScheme();
     const isDark = colorScheme === 'dark';
+    const { addQuest } = useQuests();
 
     const [title, setTitle] = useState('');
     const [deadline, setDeadline] = useState('');
@@ -24,8 +26,23 @@ export default function AddQuestScreen({ navigation }: any) {
     };
 
     const handleSave = () => {
-        console.log("Saving Quest:", { title, deadline, tasks });
-        // Later: Send this to Supabase!
+        if (!title.trim()) return;
+
+        addQuest({
+            id: Date.now().toString(),
+            title: title.trim(),
+            icon: 'school',
+            iconColor: '#6B8E23',
+            deadline: deadline || 'No Deadline',
+            deadlineBg: 'bg-primary/10 border-primary/20',
+            deadlineColor: '#6B8E23',
+            deadlineIcon: 'event-upcoming',
+            progressColor: 'bg-primary',
+            tasks: tasks
+                .filter(t => t.title.trim())
+                .map(t => ({ title: t.title.trim(), xp: parseInt(t.xp) || 100, completed: false })),
+        });
+
         navigation.goBack();
     };
 

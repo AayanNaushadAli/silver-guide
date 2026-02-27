@@ -134,6 +134,9 @@ function MainTabs() {
 }
 
 
+import { QuestProvider } from './src/context/QuestContext';
+
+
 export default function App() {
   const { colorScheme, setColorScheme } = useColorScheme();
 
@@ -160,24 +163,26 @@ export default function App() {
       <SafeAreaView className="flex-1 bg-background-light dark:bg-background-dark">
         <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} />
         <ClerkLoaded>
-          <NavigationContainer>
-            <SignedIn>
-              <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="MainTabs" component={MainTabs} />
-                <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
-                <Stack.Screen name="Settings" component={SettingsScreen} />
-                <Stack.Screen name="Focus" component={FocusScreen} options={{ presentation: 'modal' }} />
-                <Stack.Screen
-                  name="AddQuest"
-                  component={AddQuestScreen}
-                  options={{ presentation: 'modal' }}
-                />
-              </Stack.Navigator>
-            </SignedIn>
-            <SignedOut>
-              <LoginScreen />
-            </SignedOut>
-          </NavigationContainer>
+          <QuestProvider>
+            <NavigationContainer>
+              <SignedIn>
+                <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="MainTabs" component={MainTabs} />
+                  <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
+                  <Stack.Screen name="Settings" component={SettingsScreen} />
+                  <Stack.Screen name="Focus" component={FocusScreen} options={{ presentation: 'modal' }} />
+                  <Stack.Screen
+                    name="AddQuest"
+                    component={AddQuestScreen}
+                    options={{ presentation: 'modal' }}
+                  />
+                </Stack.Navigator>
+              </SignedIn>
+              <SignedOut>
+                <LoginScreen />
+              </SignedOut>
+            </NavigationContainer>
+          </QuestProvider>
         </ClerkLoaded>
       </SafeAreaView>
     </ClerkProvider>

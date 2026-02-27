@@ -3,12 +3,14 @@ import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, TextInpu
 import { MaterialIcons } from '@expo/vector-icons';
 import { useUser } from '@clerk/clerk-expo';
 import { useColorScheme } from 'nativewind';
-import { sendMessageToOracle, ChatMessage } from '../services/aiService';
+import { sendMessageToOracle, parseQuestFromResponse, ChatMessage } from '../services/aiService';
+import { useQuests } from '../context/QuestContext';
 
 export default function ChatScreen({ navigation }: any) {
     const { user } = useUser();
     const { colorScheme } = useColorScheme();
     const isDark = colorScheme === 'dark';
+    const { addQuest } = useQuests();
 
     // Chat State
     const [messages, setMessages] = useState<ChatMessage[]>([
@@ -43,8 +45,37 @@ export default function ChatScreen({ navigation }: any) {
                 updatedMessages.slice(-20),
                 trimmed
             );
-            const assistantMsg: ChatMessage = { role: 'assistant', content: reply };
-            setMessages(prev => [...prev, assistantMsg]);
+
+            // Check if the AI created a quest
+            const { quest, cleanMessage } = parseQuestFromResponse(reply);
+
+            if (quest) {
+                // Auto-create the quest in the app
+                addQuest({
+                    id: Date.now().toString(),
+                    title: quest.title,
+                    icon: quest.icon || 'school',
+                    iconColor: quest.iconColor || '#6B8E23',
+                    deadline: quest.deadline || 'No Deadline',
+                    deadlineBg: 'bg-primary/10 border-primary/20',
+                    deadlineColor: '#6B8E23',
+                    deadlineIcon: 'event-upcoming',
+                    progressColor: 'bg-primary',
+                    tasks: (quest.tasks || []).map((t: any) => ({
+                        title: t.title,
+                        xp: t.xp || 100,
+                        completed: false,
+                    })),
+                });
+
+                // Show a clean message + confirmation
+                const confirmMsg = cleanMessage + '\n\n✅ Quest "' + quest.title + '" has been forged and added to your Quest Log!';
+                const assistantMsg: ChatMessage = { role: 'assistant', content: confirmMsg };
+                setMessages(prev => [...prev, assistantMsg]);
+            } else {
+                const assistantMsg: ChatMessage = { role: 'assistant', content: reply };
+                setMessages(prev => [...prev, assistantMsg]);
+            }
         } catch (error) {
             const errorMsg: ChatMessage = {
                 role: 'assistant',
@@ -176,6 +207,10 @@ export default function ChatScreen({ navigation }: any) {
                         <TouchableOpacity onPress={() => handleChip("Quiz me on my latest subject")} className="px-4 py-2 bg-surface dark:bg-surface-dark border border-primary/20 rounded-full flex-row items-center gap-2">
                             <MaterialIcons name="quiz" size={16} color="#6B8E23" />
                             <Text className="text-xs font-bold text-text-main dark:text-white">Quick Quiz</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleChip("Create a study quest for Cyber Security based on my syllabus")} className="px-4 py-2 bg-primary/10 border border-primary/30 rounded-full flex-row items-center gap-2">
+                            <MaterialIcons name="add-circle" size={16} color="#6B8E23" />
+                            <Text className="text-xs font-bold text-primary">Create Quest</Text>
                         </TouchableOpacity>
                     </ScrollView>
 

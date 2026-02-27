@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, LayoutAnimation
 import { MaterialIcons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import { useNavigation } from '@react-navigation/native';
+import { useQuests, Quest } from '../context/QuestContext';
 
 
 
@@ -13,23 +14,17 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 // --- The Custom Accordion Component ---
 const QuestCard = ({
-    title, icon, iconColor, deadline, deadlineBg, deadlineColor, deadlineIcon,
-    progressText, progressWidth, progressColor, defaultOpen = false, tasks
-}: any) => {
+    quest, onToggleTask
+}: { quest: Quest, onToggleTask: (questId: string, taskIndex: number) => void }) => {
     const { colorScheme } = useColorScheme();
     const isDark = colorScheme === 'dark';
-    const [isOpen, setIsOpen] = useState(defaultOpen);
-    const [localTasks, setLocalTasks] = useState(tasks);
+    const [isOpen, setIsOpen] = useState(false);
+    const { getProgress } = useQuests();
+    const progress = getProgress(quest);
 
     const toggleAccordion = () => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setIsOpen(!isOpen);
-    };
-
-    const toggleTask = (index: number) => {
-        const newTasks = [...localTasks];
-        newTasks[index].completed = !newTasks[index].completed;
-        setLocalTasks(newTasks);
     };
 
     return (
@@ -39,25 +34,25 @@ const QuestCard = ({
 
                 {/* Icon */}
                 <View className="w-12 h-12 rounded-full bg-background-light dark:bg-background-dark flex items-center justify-center shadow-sm mr-4">
-                    <MaterialIcons name={icon} size={24} color={iconColor} />
+                    <MaterialIcons name={quest.icon as any} size={24} color={quest.iconColor} />
                 </View>
 
                 {/* Info */}
                 <View className="flex-1 mr-2">
                     <View className="flex-row justify-between items-center mb-2">
-                        <Text className="font-bold text-lg text-text-main dark:text-white truncate" numberOfLines={1}>{title}</Text>
-                        <View className={`flex-row items-center gap-1 px-2 py-1 rounded-full border ${deadlineBg}`}>
-                            <MaterialIcons name={deadlineIcon} size={12} color={deadlineColor} />
-                            <Text className="font-mono text-[10px] font-bold" style={{ color: deadlineColor }}>{deadline}</Text>
+                        <Text className="font-bold text-lg text-text-main dark:text-white truncate" numberOfLines={1}>{quest.title}</Text>
+                        <View className={`flex-row items-center gap-1 px-2 py-1 rounded-full border ${quest.deadlineBg}`}>
+                            <MaterialIcons name={quest.deadlineIcon as any} size={12} color={quest.deadlineColor} />
+                            <Text className="font-mono text-[10px] font-bold" style={{ color: quest.deadlineColor }}>{quest.deadline}</Text>
                         </View>
                     </View>
 
                     {/* Progress Bar */}
                     <View className="flex-row items-center gap-3">
                         <View className="flex-1 h-1.5 bg-black/5 dark:bg-black/20 rounded-full overflow-hidden">
-                            <View className={`h-full rounded-full ${progressColor}`} style={{ width: progressWidth }} />
+                            <View className={`h-full rounded-full ${quest.progressColor}`} style={{ width: `${progress}%` }} />
                         </View>
-                        <Text className="font-mono text-xs text-text-muted">{progressText}</Text>
+                        <Text className="font-mono text-xs text-text-muted">{progress}%</Text>
                     </View>
                 </View>
 
@@ -73,10 +68,10 @@ const QuestCard = ({
             {/* Dropdown Content (Tasks) */}
             {isOpen && (
                 <View className="px-4 pb-4 pt-2 border-t border-black/5 dark:border-white/5 bg-background-light/40 dark:bg-background-dark/40">
-                    {localTasks.map((task: any, index: number) => (
+                    {quest.tasks.map((task: any, index: number) => (
                         <TouchableOpacity
                             key={index}
-                            onPress={() => toggleTask(index)}
+                            onPress={() => onToggleTask(quest.id, index)}
                             activeOpacity={0.7}
                             className={`flex-row items-center p-3 rounded-xl mb-2 transition-colors ${task.completed ? 'bg-transparent' : 'bg-background-light dark:bg-background-dark shadow-sm border border-primary/10'}`}
                         >
@@ -110,6 +105,11 @@ export default function QuestLogScreen() {
     const { colorScheme } = useColorScheme();
     const isDark = colorScheme === 'dark';
     const navigation = useNavigation<any>();
+    const { quests, toggleTask, getProgress } = useQuests();
+
+    const overallProgress = quests.length > 0
+        ? Math.round(quests.reduce((sum, q) => sum + getProgress(q), 0) / quests.length)
+        : 0;
 
     return (
         <SafeAreaView className="flex-1 bg-background-light dark:bg-background-dark">
@@ -120,7 +120,7 @@ export default function QuestLogScreen() {
                     <View>
                         <Text className="font-bold text-3xl text-text-main dark:text-white tracking-tight font-display">Quest Log</Text>
                         <Text className="text-text-muted text-sm font-medium mt-1">
-                            Semester Completion: <Text className="text-primary font-bold">42%</Text>
+                            Semester Completion: <Text className="text-primary font-bold">{overallProgress}%</Text>
                         </Text>
                     </View>
 
@@ -135,67 +135,20 @@ export default function QuestLogScreen() {
 
                 {/* Global Progress Bar */}
                 <View className="w-full h-2 bg-surface dark:bg-surface-dark rounded-full overflow-hidden">
-                    <View className="h-full bg-primary rounded-full" style={{ width: '42%' }} />
+                    <View className="h-full bg-primary rounded-full" style={{ width: `${overallProgress}%` }} />
                 </View>
             </View>
 
             {/* Main Content List */}
             <ScrollView className="flex-1 px-4 pt-6" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 130 }}>
 
-                <QuestCard
-                    title="Thermodynamics II"
-                    icon="local-fire-department"
-                    iconColor="#E67E22"
-                    deadline="Exam: 3 Days"
-                    deadlineBg="bg-orange-100 dark:bg-orange-900/20 border-orange-200 dark:border-orange-900/40"
-                    deadlineColor={isDark ? "#fbd38d" : "#E67E22"}
-                    deadlineIcon="timer"
-                    progressText="45%"
-                    progressWidth="45%"
-                    progressColor="bg-orange-500"
-                    defaultOpen={true}
-                    tasks={[
-                        { title: 'Ch 1: Energy Balance', xp: 150, completed: true },
-                        { title: 'Ch 2: Entropy', xp: 200, completed: false },
-                        { title: 'Ch 3: Exergy', xp: 300, completed: false },
-                    ]}
-                />
-
-                <QuestCard
-                    title="Fluid Dynamics"
-                    icon="water-drop"
-                    iconColor="#3b82f6"
-                    deadline="Safe"
-                    deadlineBg="bg-primary/10 border-primary/20"
-                    deadlineColor="#6B8E23"
-                    deadlineIcon="event-upcoming"
-                    progressText="10%"
-                    progressWidth="10%"
-                    progressColor="bg-primary"
-                    defaultOpen={false}
-                    tasks={[
-                        { title: 'Viscosity Basics', xp: 100, completed: false },
-                        { title: 'Bernoulli Equation', xp: 250, completed: false },
-                    ]}
-                />
-
-                <QuestCard
-                    title="Calculus III"
-                    icon="functions"
-                    iconColor="#a855f7"
-                    deadline="Tomorrow"
-                    deadlineBg="bg-red-100 dark:bg-red-900/20 border-red-200 dark:border-red-900/40"
-                    deadlineColor={isDark ? "#feb2b2" : "#E53E3E"}
-                    deadlineIcon="warning"
-                    progressText="80%"
-                    progressWidth="80%"
-                    progressColor="bg-primary"
-                    defaultOpen={false}
-                    tasks={[
-                        { title: 'Double Integrals', xp: 200, completed: true },
-                        { title: 'Triple Integrals', xp: 250, completed: false },
-                    ]}
-                />
+                {quests.map((quest) => (
+                    <QuestCard
+                        key={quest.id}
+                        quest={quest}
+                        onToggleTask={toggleTask}
+                    />
+                ))}
 
                 {/* Empty State */}
                 <View className="pt-6 pb-12 items-center justify-center opacity-60">
