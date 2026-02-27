@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, SafeAreaView, useWindowDimensions } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import { StatusBar } from 'expo-status-bar';
@@ -11,15 +11,17 @@ import Animated, { useAnimatedProps, useSharedValue, runOnJS } from 'react-nativ
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-const { width } = Dimensions.get('window');
-const RADIUS = width * 0.35; // Size of the circular slider
-const STROKE_WIDTH = 24;
-const CENTER = width / 2;
 const MAX_MINUTES = 120; // 2 hours max
 
 export default function FocusScreen({ navigation }: any) {
     const { colorScheme } = useColorScheme();
     const isDark = colorScheme === 'dark';
+    const { width: windowWidth } = useWindowDimensions();
+
+    const SLIDER_SIZE = Math.min(windowWidth * 0.85, 400); // Capped at 400px for PC
+    const RADIUS = SLIDER_SIZE * 0.42;
+    const STROKE_WIDTH = 24;
+    const CENTER = SLIDER_SIZE / 2;
 
     // Theme Colors
     const primaryColor = isDark ? '#bbf7d0' : '#6B8E23';
@@ -84,10 +86,9 @@ export default function FocusScreen({ navigation }: any) {
 
     const panGesture = Gesture.Pan()
         .onUpdate((event) => {
-            // Calculate angle relative to center
-            const x = event.absoluteX - CENTER;
-            // Subtract offset to align center of SVG with gesture absolute coordinate system
-            const y = event.absoluteY - (Dimensions.get('window').height / 2 - 50); // Rough center estimation
+            // Calculate angle relative to center using relative coordinates
+            const x = event.x - CENTER;
+            const y = event.y - CENTER;
 
             // Math.atan2 returns angle from -PI to PI. We want 0 at the top, going clockwise.
             let a = Math.atan2(y, x) + Math.PI / 2;
@@ -136,12 +137,12 @@ export default function FocusScreen({ navigation }: any) {
             <View className="flex-1 items-center justify-center">
 
                 {/* The Circular Slider */}
-                <View className="relative items-center justify-center" style={{ width: width, height: width }}>
+                <View className="relative items-center justify-center" style={{ width: SLIDER_SIZE, height: SLIDER_SIZE }}>
 
                     {/* The Interactive Ring */}
                     <GestureDetector gesture={isActive ? Gesture.Native() : panGesture}>
-                        <Animated.View style={{ position: 'absolute', width: width, height: width }}>
-                            <Svg width={width} height={width}>
+                        <Animated.View style={{ position: 'absolute', width: SLIDER_SIZE, height: SLIDER_SIZE }}>
+                            <Svg width={SLIDER_SIZE} height={SLIDER_SIZE}>
                                 {/* Background Track */}
                                 <Circle
                                     cx={CENTER}
