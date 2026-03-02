@@ -67,6 +67,27 @@ export const SEMESTER_DATA: Record<string, SubjectData[]> = {
     ],
 };
 
+export const PYQ_DATA = `
+--- PAST YEAR QUESTIONS (2023-24) ---
+Subject: Cyber Security
+1. How does cybercrime differ from traditional crime?
+2. What are the common profiles of cybercriminals?
+3. How do registry settings differ between mobile OS (Android/iOS)?
+4. What is a keylogger, and how does it capture keystrokes?
+5. What is digital forensics vs traditional forensic science?
+6. What tools and technologies are essential against cybercrime?
+7. How do multi-factor authentication (MFA) systems work on mobile?
+8. What is steganography?
+9. What are the technical challenges in computer forensics?
+10. What are the typical stages of a cyber-attack?
+11. How can users detect phishing attacks on mobile devices?
+12. Difference between DoS and DDoS attack?
+13. What is an SQL injection attack?
+14. What are the stages of the digital forensics life cycle?
+15. What are the legal consequences for cybercrimes under Indian law?
+-------------------------------------
+`;
+
 /**
  * Get subjects for a given semester and branch
  */
@@ -90,5 +111,5 @@ export function buildSyllabusContext(subjects: SubjectData[]): string {
  */
 export function getLocalKnowledgeContext(): string {
     const allSubjects = SEMESTER_DATA['4_cs'] || [];
-    return `--- SYLLABUS KNOWLEDGE BASE ---\n${buildSyllabusContext(allSubjects)}\n-------------------------------`;
+    return `--- SYLLABUS KNOWLEDGE BASE ---\n${buildSyllabusContext(allSubjects)}\n-------------------------------\n\n${PYQ_DATA}`;
 }

@@ -1,16 +1,18 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useUser } from '@clerk/clerk-expo';
+import { useUser, useAuth } from '@clerk/clerk-expo';
 import { useColorScheme } from 'nativewind';
-import { sendMessageToOracle, parseQuestFromResponse, ChatMessage } from '../services/aiService';
+import Markdown from 'react-native-markdown-display';
+import { sendMessageToOracle, parseActionsFromResponse, ChatMessage, fetchChatHistory, saveChatMessage } from '../services/aiService';
 import { useQuests } from '../context/QuestContext';
 
 export default function ChatScreen({ navigation }: any) {
     const { user } = useUser();
+    const { getToken } = useAuth();
     const { colorScheme } = useColorScheme();
     const isDark = colorScheme === 'dark';
-    const { addQuest } = useQuests();
+    const { quests, addQuest, markTaskComplete, removeQuest, replaceAllQuests, grantBonusXP } = useQuests();
 
     // Chat State
     const [messages, setMessages] = useState<ChatMessage[]>([
@@ -21,7 +23,30 @@ export default function ChatScreen({ navigation }: any) {
     ]);
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isHistoryLoading, setIsHistoryLoading] = useState(true);
     const scrollViewRef = useRef<ScrollView>(null);
+
+    // Load History on Mount
+    React.useEffect(() => {
+        const loadHistory = async () => {
+            if (!user) return;
+            const token = await getToken({ template: 'Supabase' });
+            if (!token) return;
+
+            try {
+                const history = await fetchChatHistory(token);
+                if (history.length > 0) {
+                    setMessages(history);
+                }
+            } catch (err) {
+                console.error("Failed to load history:", err);
+            } finally {
+                setIsHistoryLoading(false);
+                setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+            }
+        };
+        loadHistory();
+    }, [user]);
 
     // Send a message
     const handleSend = async () => {
@@ -30,24 +55,50 @@ export default function ChatScreen({ navigation }: any) {
 
         // Add user message to the chat immediately
         const userMsg: ChatMessage = { role: 'user', content: trimmed };
-        const updatedMessages = [...messages, userMsg];
-        setMessages(updatedMessages);
+        setMessages(prev => [...prev, userMsg]);
         setInputText('');
+
+        // Persist User Message
+        const token = await getToken({ template: 'Supabase' });
+        if (token && user) {
+            saveChatMessage(token, user.id, userMsg.role, userMsg.content);
+        }
 
         // Scroll to bottom
         setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
 
+        // Build Active Quests Context (Full list of IDs for deletion, plus task details for quizzes)
+        const simplifiedQuests = quests.map(q => ({
+            questId: q.id,
+            title: q.title,
+            source: q.source || 'ai-chat', // Assume ai-chat if not specified
+            status: q.tasks.every(t => t.completed) ? 'Completed' : 'Active',
+            incompleteTasks: q.tasks
+                .map((t, idx) => ({ title: t.title, index: idx, completed: t.completed, maxXP: t.xp, requiresQuiz: t.requiresQuiz }))
+                .filter(t => !t.completed && t.requiresQuiz)
+        }));
+
+        const activeQuestsContext = JSON.stringify(simplifiedQuests, null, 2);
+
         // Call The Oracle
         setIsLoading(true);
         try {
-            const reply = await sendMessageToOracle(
-                // Send last 20 messages as context to avoid token overflow
-                updatedMessages.slice(-20),
-                trimmed
-            );
+            // Build the updated messages array for history (since state update is async)
+            const currentHistory = [...messages, userMsg];
 
-            // Check if the AI created a quest
-            const { quest, cleanMessage } = parseQuestFromResponse(reply);
+            // Strip any raw LLaMA JSON from history so it doesn't get confused and hallucinate
+            const safeHistory = currentHistory.slice(-20).map(m => ({
+                role: m.role,
+                content: m.content.replace(/\[QUEST_CREATE\][\s\S]*?\[\/QUEST_CREATE\]/g, '')
+                    .replace(/\[MARK_TASK_DONE\][\s\S]*?\[\/MARK_TASK_DONE\]/g, '')
+            }));
+
+            const reply = await sendMessageToOracle(safeHistory, trimmed, activeQuestsContext);
+
+            // Parse any actions the AI returned
+            const { quest, markedTasks, deletedQuestIds, clearAll, grantedBonusXp, cleanMessage } = parseActionsFromResponse(reply);
+
+            let confirmMsg = cleanMessage;
 
             if (quest) {
                 // Auto-create the quest in the app
@@ -65,17 +116,52 @@ export default function ChatScreen({ navigation }: any) {
                         title: t.title,
                         xp: t.xp || 100,
                         completed: false,
+                        requiresQuiz: true, // Auto-generated tasks from Chat also require quiz
                     })),
+                    source: 'ai-chat',
                 });
-
-                // Show a clean message + confirmation
-                const confirmMsg = cleanMessage + '\n\n✅ Quest "' + quest.title + '" has been forged and added to your Quest Log!';
-                const assistantMsg: ChatMessage = { role: 'assistant', content: confirmMsg };
-                setMessages(prev => [...prev, assistantMsg]);
-            } else {
-                const assistantMsg: ChatMessage = { role: 'assistant', content: reply };
-                setMessages(prev => [...prev, assistantMsg]);
+                confirmMsg += '\n\n✅ Quest "' + quest.title + '" has been forged and added to your Quest Log!';
             }
+
+            if (markedTasks.length > 0) {
+                markedTasks.forEach(mt => {
+                    markTaskComplete(mt.questId, mt.taskIndex, mt.xpEarned);
+                });
+                confirmMsg += `\n\n🎯 Assigned ${markedTasks.reduce((s, t) => s + t.xpEarned, 0)} XP ! Check your Quest Log.`;
+            }
+
+            if (deletedQuestIds.length > 0) {
+                for (const id of deletedQuestIds) {
+                    await removeQuest(id);
+                }
+                confirmMsg += `\n\n🗑️ ${deletedQuestIds.length} quest(s) removed from your log.`;
+            }
+
+            if (clearAll) {
+                await replaceAllQuests([]);
+                confirmMsg += '\n\n🧹 All quests have been cleared from your log.';
+            }
+
+            if (grantedBonusXp && grantedBonusXp.length > 0) {
+                for (const bonus of grantedBonusXp) {
+                    await grantBonusXP(bonus.amount);
+                    Alert.alert(
+                        "🔥 ELITE BONUS UNLOCKED! 🔥",
+                        `${bonus.reason}\n\nYou've been granted +${bonus.amount} XP from The Oracle! Check your Dashboard!`,
+                        [{ text: "Awesome!" }]
+                    );
+                    confirmMsg += `\n\n*(Granted Elite Bonus: +${bonus.amount} XP)*`;
+                }
+            }
+
+            const assistantMsg: ChatMessage = { role: 'assistant', content: confirmMsg };
+            setMessages(prev => [...prev, assistantMsg]);
+
+            // Persist Assistant Message
+            if (token && user) {
+                saveChatMessage(token, user.id, assistantMsg.role, assistantMsg.content);
+            }
+
         } catch (error) {
             const errorMsg: ChatMessage = {
                 role: 'assistant',
@@ -147,9 +233,18 @@ export default function ChatScreen({ navigation }: any) {
                                 <View className="flex-1">
                                     <Text className="text-[11px] font-bold text-text-muted ml-1 mb-1">The Oracle</Text>
                                     <View className="bg-surface dark:bg-surface-dark p-4 rounded-2xl rounded-tl-none shadow-sm border border-primary/10">
-                                        <Text className="text-text-main dark:text-white text-sm leading-relaxed">
+                                        <Markdown style={{
+                                            body: { color: isDark ? '#ffffff' : '#2A2D34', fontSize: 14, lineHeight: 22 },
+                                            strong: { fontWeight: 'bold', color: isDark ? '#ffffff' : '#2A2D34' },
+                                            em: { fontStyle: 'italic' },
+                                            list_item: { marginVertical: 2 },
+                                            bullet_list: { marginTop: 4, marginBottom: 4 },
+                                            ordered_list: { marginTop: 4, marginBottom: 4 },
+                                            code_inline: { backgroundColor: isDark ? '#2A2D34' : '#F4F1EA', padding: 2, borderRadius: 4, fontFamily: 'monospace' },
+                                            code_block: { backgroundColor: isDark ? '#1c2111' : '#F4F1EA', padding: 8, borderRadius: 8, fontFamily: 'monospace', marginTop: 8, marginBottom: 8 },
+                                        }}>
                                             {msg.content}
-                                        </Text>
+                                        </Markdown>
                                     </View>
                                 </View>
                             </View>
@@ -196,6 +291,10 @@ export default function ChatScreen({ navigation }: any) {
 
                     {/* Action Chips */}
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3" contentContainerStyle={{ gap: 8 }}>
+                        <TouchableOpacity onPress={() => handleChip("Start a PYQ Mock Exam for Cyber Security. Ask me one hard question from the past year papers.")} className="px-5 py-2 bg-text-main dark:bg-white border text-white border-primary/20 rounded-full flex-row items-center gap-2 shadow-lg shadow-black/20">
+                            <MaterialIcons name="local-fire-department" size={16} color="#E53E3E" />
+                            <Text className="text-xs font-bold text-background-light dark:text-background-dark tracking-wide">PYQ Mock Exam</Text>
+                        </TouchableOpacity>
                         <TouchableOpacity onPress={() => handleChip("Summarize my weakest topic")} className="px-4 py-2 bg-surface dark:bg-surface-dark border border-primary/20 rounded-full flex-row items-center gap-2">
                             <MaterialIcons name="summarize" size={16} color="#6B8E23" />
                             <Text className="text-xs font-bold text-text-main dark:text-white">Summarize Topic</Text>

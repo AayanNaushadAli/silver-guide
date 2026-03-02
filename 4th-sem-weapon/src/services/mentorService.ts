@@ -56,7 +56,7 @@ Return ONLY a JSON object with a "quests" array. Each quest object:
   "title": "Subject Name",
   "subjectCode": "BCS401",
   "tasks": [
-    { "title": "Unit 1: Topic Name", "xp": 150, "completed": false },
+    { "title": "Unit 1: Topic Name", "xp": 150, "completed": false, "requiresQuiz": true },
     ...
   ]
 }
@@ -85,7 +85,9 @@ Assign XP based on unit difficulty (100-300). Order tasks by priority for the fo
                         title: t.title,
                         xp: t.xp || 150,
                         completed: false,
+                        requiresQuiz: true,
                     })),
+                    source: 'syllabus',
                 };
             });
         } catch (e) {
@@ -107,7 +109,9 @@ Assign XP based on unit difficulty (100-300). Order tasks by priority for the fo
                         title: `Unit ${ui + 1}: ${u.name}`,
                         xp: 150 + (ui * 25),
                         completed: false,
+                        requiresQuiz: true,
                     })),
+                    source: 'syllabus',
                 };
             });
         }

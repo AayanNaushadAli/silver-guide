@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, SafeAreaView, useWindowDimensions, AppState, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import { StatusBar } from 'expo-status-bar';
@@ -20,7 +20,7 @@ export default function FocusScreen({ navigation }: any) {
     const isDark = colorScheme === 'dark';
     const { width: windowWidth } = useWindowDimensions();
     const { mentorState } = useMentor();
-    const { quests } = useQuests();
+    const { quests, recordFocusSession } = useQuests();
 
     // AI-suggested focus: use daily mission's next incomplete task
     const focusQuest = mentorState?.dailyMission || quests[0];
@@ -41,10 +41,32 @@ export default function FocusScreen({ navigation }: any) {
     const [presetMinutes, setPresetMinutes] = useState(25);
     const [secondsLeft, setSecondsLeft] = useState(25 * 60);
     const [isActive, setIsActive] = useState(false);
+    const [sessionEnded, setSessionEnded] = useState(false);
 
     // Initial angle based on default 25 minutes
     const initialAngle = (25 / MAX_MINUTES) * 2 * Math.PI;
     const angle = useSharedValue(initialAngle);
+
+    // The Background Punishment Engine
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', async (nextAppState) => {
+            if (isActive && secondsLeft > 0 && !sessionEnded) {
+                if (nextAppState === 'background' || nextAppState === 'inactive') {
+                    // FLED THE BATTLE!
+                    setIsActive(false);
+                    setSessionEnded(true);
+                    const xpLost = await recordFocusSession(presetMinutes, false);
+                    Alert.alert(
+                        "🏃 Fled the Battle!",
+                        `You broke your focus and lost ${Math.abs(xpLost)} XP. Stay in the app to survive!`
+                    );
+                    resetTimer();
+                }
+            }
+        });
+
+        return () => subscription.remove();
+    }, [isActive, secondsLeft, presetMinutes, sessionEnded, recordFocusSession]);
 
     // The Engine that runs the countdown
     useEffect(() => {
@@ -54,16 +76,24 @@ export default function FocusScreen({ navigation }: any) {
             interval = setInterval(() => {
                 setSecondsLeft(seconds => seconds - 1);
             }, 1000);
-        } else if (secondsLeft === 0 && isActive) {
+        } else if (secondsLeft === 0 && isActive && !sessionEnded) {
             setIsActive(false);
+            setSessionEnded(true);
             console.log("🟢 POMODORO COMPLETE! Granting XP...");
-            // TODO: Trigger victory sound and grant Supabase XP here!
+            // Grant XP
+            (async () => {
+                const xpEarned = await recordFocusSession(presetMinutes, true);
+                Alert.alert(
+                    "⚔️ Victory!",
+                    `You maintained focus for ${presetMinutes} minutes and earned +${xpEarned} XP!`
+                );
+            })();
         }
 
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [isActive, secondsLeft]);
+    }, [isActive, secondsLeft, sessionEnded, presetMinutes, recordFocusSession]);
 
     // Format the time into MM:SS
     const minutes = Math.floor(secondsLeft / 60);
@@ -71,9 +101,14 @@ export default function FocusScreen({ navigation }: any) {
     const displayTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 
     // Controls
-    const toggleTimer = () => setIsActive(!isActive);
+    const toggleTimer = () => {
+        if (!isActive) setSessionEnded(false);
+        setIsActive(!isActive);
+    };
+
     const resetTimer = () => {
         setIsActive(false);
+        setSessionEnded(false);
         setSecondsLeft(presetMinutes * 60);
     };
 

@@ -79,6 +79,7 @@ const QuestCard = ({
                             {/* Checkbox */}
                             <View className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mr-4 ${task.completed ? 'bg-gold border-gold' : 'border-text-muted/40'}`}>
                                 {task.completed && <MaterialIcons name="check" size={16} color="white" />}
+                                {!task.completed && <MaterialIcons name="lock" size={10} color="#95A5A6" />}
                             </View>
 
                             {/* Task Name */}
@@ -86,11 +87,20 @@ const QuestCard = ({
                                 {task.title}
                             </Text>
 
-                            {/* XP Reward */}
-                            <View className={task.completed ? 'opacity-50' : 'bg-gold/10 px-2 py-0.5 rounded-md'}>
-                                <Text className="font-mono text-xs font-bold" style={{ color: task.completed ? '#95A5A6' : '#F1C40F' }}>
-                                    +{task.xp} XP
-                                </Text>
+                            {/* XP Reward & Score */}
+                            <View className="flex-row items-center gap-2">
+                                {task.completed && task.score !== undefined && (
+                                    <View className="bg-primary/20 px-2 py-0.5 rounded-md border border-primary/30">
+                                        <Text className="font-mono text-[10px] font-bold text-primary">
+                                            {task.score}%
+                                        </Text>
+                                    </View>
+                                )}
+                                <View className={task.completed ? 'opacity-50' : 'bg-gold/10 px-2 py-0.5 rounded-md'}>
+                                    <Text className="font-mono text-[10px] font-bold" style={{ color: task.completed ? '#95A5A6' : '#F1C40F' }}>
+                                        +{task.earnedXp ?? task.xp} XP
+                                    </Text>
+                                </View>
                             </View>
                         </TouchableOpacity>
                     ))}
@@ -123,18 +133,32 @@ export default function QuestLogScreen() {
 
     // AI-enhanced task toggle: complete task → AI reviews → gives feedback
     const handleTaskToggle = async (questId: string, taskIndex: number) => {
-        // Toggle the task first (optimistic UI)
-        toggleTask(questId, taskIndex);
-
-        // Check if it's being marked as completed (not un-completed)
         const quest = quests.find(q => q.id === questId);
-        if (quest && !quest.tasks[taskIndex].completed) {
-            // AI reviews the completed task
-            const praise = await reviewTaskCompletion(questId, taskIndex);
-            if (praise) {
-                Alert.alert('⚡ Oracle Says', praise);
-            }
+        if (!quest) return;
+
+        const task = quest.tasks[taskIndex];
+
+        // Block manual toggling for ALL quests entirely
+        if (!task.completed) {
+            Alert.alert(
+                '🧠 Oracle Required',
+                'This quest requires a quiz to prove your mastery. Ask The Oracle to quiz you on this topic to earn XP!',
+                [
+                    { text: 'Go to Chat', onPress: () => navigation.navigate('Chat') },
+                    { text: 'Cancel', style: 'cancel' }
+                ]
+            );
+        } else {
+            Alert.alert(
+                '⚠️ Reset Quest',
+                'Are you sure you want to reset this quest? You will lose the XP and score earned from The Oracle.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Reset', style: 'destructive', onPress: () => toggleTask(questId, taskIndex) }
+                ]
+            );
         }
+        return;
     };
 
     // Recalibrate: navigate to full recalibration screen
