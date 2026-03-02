@@ -1,0 +1,136 @@
+# Screen Gap Analysis & Implementation Plan
+
+## Summary
+
+**23 screens designed** → **9 screens built** → **14 screens remaining**
+
+---
+
+## ✅ Existing Screens (Already Implemented)
+
+| # | Design File | Implemented As | Status |
+|---|---|---|---|
+| 1 | [zen_login_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/zen_login_screen.png) | [LoginScreen.tsx](file:///c:/Users/aayan/OneDrive/Desktop/study/4th-sem-weapon/src/screens/LoginScreen.tsx) | ✅ Built — Google OAuth + email/password via Clerk |
+| 2 | [the_dojo_home_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/the_dojo_home_screen.png) | [DashboardScreen.tsx](file:///c:/Users/aayan/OneDrive/Desktop/study/4th-sem-weapon/src/screens/DashboardScreen.tsx) | ⚠️ Partially built — missing "System Insight" AI card from `the_dojo_ai_strategy_map_screen` |
+| 3 | [quest_log_syllabus_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/quest_log_syllabus_screen.png) | [QuestLogScreen.tsx](file:///c:/Users/aayan/OneDrive/Desktop/study/4th-sem-weapon/src/screens/QuestLogScreen.tsx) | ⚠️ Partially built — missing "Recalibrate System" button from `quest_log_ai_recalibration_screen` |
+| 4 | [skill_tree_profile_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/skill_tree_profile_screen.png) | [ProfileScreen.tsx](file:///c:/Users/aayan/OneDrive/Desktop/study/4th-sem-weapon/src/screens/ProfileScreen.tsx) | ✅ Built — radar chart, badges, stats |
+| 5 | [settings_inventory_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/settings_inventory_screen.png) | [SettingsScreen.tsx](file:///c:/Users/aayan/OneDrive/Desktop/study/4th-sem-weapon/src/screens/SettingsScreen.tsx) | ⚠️ Partially built — missing **Inventory** section (Quick Links & Snippets) |
+| 6 | [focus_chamber_timer_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/focus_chamber_timer_screen.png) | [FocusScreen.tsx](file:///c:/Users/aayan/OneDrive/Desktop/study/4th-sem-weapon/src/screens/FocusScreen.tsx) | ✅ Built — circular timer with presets |
+| 7 | [add_quest_modal_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/add_quest_modal_screen.png) | [AddQuestScreen.tsx](file:///c:/Users/aayan/OneDrive/Desktop/study/4th-sem-weapon/src/screens/AddQuestScreen.tsx) | ⚠️ Partially built — missing Subject dropdown & Priority Level selector from design |
+| 8 | N/A (Oracle/Chat) | [ChatScreen.tsx](file:///c:/Users/aayan/OneDrive/Desktop/study/4th-sem-weapon/src/screens/ChatScreen.tsx) | ✅ Built — AI chat with Gemini |
+| 9 | N/A (Leaderboard) | [LeaderboardScreen.tsx](file:///c:/Users/aayan/OneDrive/Desktop/study/4th-sem-weapon/src/screens/LeaderboardScreen.tsx) | ✅ Built — rankings display |
+
+---
+
+## ❌ Remaining Screens (Not Yet Implemented)
+
+### Phase 1: Onboarding Flow (4 screens)
+> These form a sequential first-time-user experience after login.
+
+| # | Design File | Screen Name | Description |
+|---|---|---|---|
+| 1 | [the_awakening_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/the_awakening_screen.png) | **The Awakening** | System initialization — player name, target CGPA slider, semester picker, "Begin Journey" CTA |
+| 2 | [quest_line_initialization_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/quest_line_initialization_screen.png) | **Quest Line Initialization** | Select engineering branch, pick semester subjects with icons, paginated (step 2 of 4) |
+| 3 | [goal_alignment_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/goal_alignment_screen.png) | **Goal Alignment** | CGPA target slider, primary semester focus (Exam Performance / Skill Mastery / Consistency), step 3 of 4 |
+| 4 | [final_calibration_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/final_calibration_screen.png) | **Final Calibration** | Summary review — master name, zen branch, core target; hero image; "Enter the Dojo" CTA |
+
+#### Implementation Notes
+- Create `src/screens/onboarding/` folder with 4 screens
+- Add an `OnboardingContext` to persist selected values across steps
+- Store onboarding data in Supabase `players` table
+- Add a `has_completed_onboarding` flag to skip flow on subsequent logins
+- Wire into [App.tsx](file:///c:/Users/aayan/OneDrive/Desktop/study/4th-sem-weapon/App.tsx) navigation: after `SignedIn`, check onboarding status → show onboarding flow OR main tabs
+
+---
+
+### Phase 2: Enhanced Core Screens (3 features)
+> Upgrades to existing screens based on design variants.
+
+| # | Design File | Target Screen | What's Missing |
+|---|---|---|---|
+| 5 | [the_dojo_ai_strategy_map_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/the_dojo_ai_strategy_map_screen.png) | **DashboardScreen** | "System Insight" card — AI-generated strategic tip (e.g., "Boss Weakness Detected") |
+| 6 | [quest_log_ai_recalibration_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/quest_log_ai_recalibration_screen.png) | **QuestLogScreen** | "Recalibrate System" button in header |
+| 7 | [add_quest_modal_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/add_quest_modal_screen.png) | **AddQuestScreen** | Subject dropdown selector + Priority Level (High/Medium/Low) chips |
+
+#### Implementation Notes
+- For #5: Add an AI insight card component to [DashboardScreen](file:///c:/Users/aayan/OneDrive/Desktop/study/4th-sem-weapon/src/screens/DashboardScreen.tsx#12-198), call Gemini API for contextual tips
+- For #6: Add "Recalibrate System" button that opens the System Recalibration modal
+- For #7: Add `<Picker>` for subject and priority chip row to [AddQuestScreen](file:///c:/Users/aayan/OneDrive/Desktop/study/4th-sem-weapon/src/screens/AddQuestScreen.tsx#7-143)
+
+---
+
+### Phase 3: PYQ Vault System (3 screens)
+> Entirely new feature area — Previous Year Questions vault.
+
+| # | Design File | Screen Name | Description |
+|---|---|---|---|
+| 8 | [pyq_vault_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/pyq_vault_screen.png) | **PYQ Vault** | Main vault listing — filter tabs (All/Solved/Revision), resource cards with year, subject, semester, status |
+| 9 | [pyq_vault_ai_data_sync_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/pyq_vault_ai_data_sync_screen.png) | **PYQ Vault (AI Sync variant)** | Same vault with AI sync indicators ("Reading... KB: SYNCED") |
+| 10 | [topic_detail_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/topic_detail_screen.png) | **Topic Detail** | Drill-down into a quest topic — confidence status, progress bar, linked resources (video/PDF/quiz), Zen Tip |
+
+#### Implementation Notes
+- Create `src/screens/PYQVaultScreen.tsx`
+- Create `src/screens/TopicDetailScreen.tsx`
+- New Supabase tables: `pyq_resources`, `resource_progress`
+- Add PYQ Vault to navigation (could replace the Upload tab or add as a stack screen)
+- AI sync is visual polish — can show "KB: SYNCED" badge after AI processes a resource
+
+---
+
+### Phase 4: AI Strategy & Recalibration (3 screens)
+> AI-powered path management features.
+
+| # | Design File | Screen Name | Description |
+|---|---|---|---|
+| 11 | [the_oracle_processing_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/the_oracle_processing_screen.png) | **Oracle Processing** | AI loading/processing screen — animated spinner, "Consulting the Oracle", live progress bar, data nodes counter, log feed |
+| 12 | [system_recalibration_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/system_recalibration_screen.png) | **System Recalibration** | Modal triggered when user misses days — shows suggested daily missions, "Accept Path" / "Reject & Customize" |
+| 13 | [customize_path_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/customize_path_screen.png) | **Customize Path** | Manual mission reordering — drag-to-reorder list, estimated load & total XP summary, "Finalize Path" |
+
+#### Implementation Notes
+- `OracleProcessingScreen`: Animated loading screen, can use `Animated` API for pulsing circles, fake log stream
+- `SystemRecalibrationScreen`: Bottom sheet modal, fetches AI-suggested missions
+- `CustomizePathScreen`: Drag-and-drop list with `react-native-draggable-flatlist`
+
+---
+
+### Phase 5: Additional Modals (3 screens)
+> Smaller modal/overlay screens.
+
+| # | Design File | Screen Name | Description |
+|---|---|---|---|
+| 14 | [add_pyq_modal_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/add_pyq_modal_screen.png) | **Add PYQ Modal** | Bottom sheet — academic year dropdown, weightage input, subject picker, photo upload area |
+| 15 | [add_resource_modal_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/add_resource_modal_screen.png) | **Add Resource Modal** | Bottom sheet — resource title, URL/link input, icon type selector (Video/Doc/Link) |
+| 16 | [reorder_animation_preview_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/reorder_animation_preview_screen.png) | **Reorder Animation Preview** | Animated version of Customize Path — mission cards with drag handles mid-reorder |
+| 17 | [generated_screen_screen.png](file:///c:/Users/aayan/OneDrive/Desktop/study/screen/generated_screen_screen.png) | **Path Accepted** | Success confirmation — "+250 XP GAINED" banner, checkmark animation, "Enter the Dojo" |
+
+#### Implementation Notes
+- Modals can use `@gorhom/bottom-sheet` or React Navigation modal presentation
+- `AddPYQModal` needs camera/image picker: `expo-image-picker`
+- `PathAcceptedScreen` is a simple success animation screen, use `Lottie` or `Animated` API
+
+---
+
+## 📊 Overall Progress
+
+```
+Built:      ██████████░░░░░░░░░░░░░░░  9/23 screens  (39%)
+Remaining:  ░░░░░░░░░░██████████████░  14/23 screens (61%)
+```
+
+## Suggested Implementation Priority
+
+1. **🔴 Phase 1 — Onboarding** (Critical: first-time user experience is currently missing)
+2. **🟡 Phase 2 — Enhance Existing Screens** (Quick wins: improve already-built screens)
+3. **🟢 Phase 3 — PYQ Vault** (Major new feature area)
+4. **🔵 Phase 4 — AI Strategy** (Advanced AI features)
+5. **⚪ Phase 5 — Modals** (Polish & supporting screens)
+
+## Verification Plan
+
+### Manual Verification
+- After each screen is built, run the app with `npx expo start` and visually compare against the design PNG
+- Test the full onboarding flow end-to-end after Phase 1
+- Test navigation between all screens after each phase
+
+> [!IMPORTANT]
+> The onboarding flow (Phase 1) is the most critical missing piece — without it, new users land directly on the dashboard with no context. This should be the first priority.

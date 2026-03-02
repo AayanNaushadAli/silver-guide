@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Platform, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Platform, Image, ActivityIndicator, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useUser, useAuth } from '@clerk/clerk-expo';
 import { createClerkSupabaseClient } from '../database/supabaseClient';
@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 
 import FloatingMenu from '../components/FloatingMenu';
 import { useQuests } from '../context/QuestContext';
+import { useMentor } from '../context/MentorContext';
 
 
 export default function DashboardScreen() {
@@ -16,34 +17,81 @@ export default function DashboardScreen() {
     const [playerStats, setPlayerStats] = useState<any>(null);
 
     const navigation = useNavigation<any>();
+    const { mentorState, isLoading: mentorLoading } = useMentor();
 
     useEffect(() => {
         async function syncPlayerToDatabase() {
-            if (!user) return;
+            try {
+                if (!user) {
+                    console.log('❌ Dashboard: No user object');
+                    return;
+                }
+                console.log('👤 Dashboard: User ID:', user.id, 'Name:', user.firstName);
 
-            const clerkToken = await getToken({ template: 'supabase' });
-            if (!clerkToken) return;
+                const clerkToken = await getToken({ template: 'Supabase' });
+                console.log('🔑 Dashboard: Token received:', clerkToken ? 'YES (' + clerkToken.substring(0, 20) + '...)' : '❌ NULL');
 
-            const supabase = createClerkSupabaseClient(clerkToken);
+                if (!clerkToken) {
+                    Alert.alert('⚠️ Token Error', 'Clerk JWT template "Supabase" returned null. Check your Clerk Dashboard > JWT Templates.');
+                    return;
+                }
 
-            const { data: existingPlayer, error: fetchError } = await supabase.from('player_stats').select('*').eq('clerk_user_id', user.id).single();
+                const supabase = createClerkSupabaseClient(clerkToken);
+                console.log('🔌 Dashboard: Supabase client created');
 
-            if (!existingPlayer) {
-                console.log("New player Detected. Initializing Stats...");
-                const { data: newPlayer, error: insertError } = await supabase.from('player_stats').insert({
-                    clerk_user_id: user.id,
-                    name: user.firstName || 'Seeker',
-                    level: 1,
-                    total_xp: 0,
-                    streak_days: 0
-                })
-                    .select()
+                const { data: existingPlayer, error: fetchError } = await supabase
+                    .from('player_stats')
+                    .select('*')
+                    .eq('clerk_user_id', user.id)
                     .single();
 
-                setPlayerStats(newPlayer);
-            } else {
-                console.log("Welcome Back, Player!")
-                setPlayerStats(existingPlayer);
+                console.log('📊 Dashboard: SELECT result:', JSON.stringify({ existingPlayer, fetchError }));
+
+                if (fetchError && fetchError.code !== 'PGRST116') {
+                    // PGRST116 = "no rows returned" which is expected for new users
+                    console.error('❌ Dashboard: SELECT error:', JSON.stringify(fetchError));
+                    Alert.alert('⚠️ DB Read Error', `Code: ${fetchError.code}\nMessage: ${fetchError.message}`);
+                }
+
+                if (!existingPlayer) {
+                    console.log("🆕 New player detected. Redirecting to onboarding...");
+                    // Insert minimal player row, then redirect to onboarding
+                    const { data: newPlayer, error: insertError } = await supabase
+                        .from('player_stats')
+                        .insert({
+                            clerk_user_id: user.id,
+                            name: user.firstName || 'Seeker',
+                            level: 1,
+                            total_xp: 0,
+                            streak_days: 0,
+                            has_completed_onboarding: false,
+                        })
+                        .select()
+                        .single();
+
+                    console.log('📊 Dashboard: INSERT result:', JSON.stringify({ newPlayer, insertError }));
+
+                    if (insertError) {
+                        Alert.alert('⚠️ DB Write Error', `Code: ${insertError.code}\nMessage: ${insertError.message}\nDetails: ${insertError.details}`);
+                    } else {
+                        console.log('✅ Dashboard: Player created. Redirecting to onboarding...');
+                        setPlayerStats(newPlayer);
+                        navigation.replace('Onboarding');
+                        return;
+                    }
+                } else {
+                    // Existing player — check if onboarding is done
+                    if (!existingPlayer.has_completed_onboarding) {
+                        console.log('📋 Dashboard: Onboarding not completed. Redirecting...');
+                        navigation.replace('Onboarding');
+                        return;
+                    }
+                    console.log("✅ Welcome Back, Player!");
+                    setPlayerStats(existingPlayer);
+                }
+            } catch (err: any) {
+                console.error('💥 Dashboard: Unexpected error:', err);
+                Alert.alert('💥 Sync Error', err.message || String(err));
             }
         }
         syncPlayerToDatabase();
@@ -53,11 +101,17 @@ export default function DashboardScreen() {
 
     const { quests, totalXP, getProgress } = useQuests();
 
-    // Pick the first quest as the "Daily Mission" and the rest as "Side Quests"
-    const dailyMission = quests[0];
-    const sideQuests = quests.slice(1);
+    // AI picks the daily mission, fallback to first quest
+    const dailyMission = mentorState?.dailyMission || quests[0];
+    // AI sorts the rest, fallback to remaining quests
+    const sideQuests = quests.filter(q => q.id !== dailyMission?.id);
     const xpForNextLevel = 2000;
     const xpPercent = Math.min((totalXP / xpForNextLevel) * 100, 100);
+
+    // AI-driven insight or fallback
+    const insightTitle = mentorState?.insight?.title || 'Focus on Consistency';
+    const insightMessage = mentorState?.insight?.message || 'Complete today\'s primary mission to stay on track.';
+    const mentorGreeting = mentorState?.mentorMessage || '"Consistency is the path to mastery."';
 
     return (
         <SafeAreaView className="flex-1 bg-background-light dark:bg-background-dark">
@@ -67,7 +121,7 @@ export default function DashboardScreen() {
                     <View className="flex-row items-center gap-3">
                         <View className="relative">
                             <Image
-                                source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDBJyOz_-6WyVDz9F1DjyU4Sk4Q1xEnLu7pSRFuYR8b5kjkyvtWQ1gpDr9cvHCb3XRli6Bq9seBbST2bWtSXvRSlFsz7_I3nlHoRHdwIUEJH5qBgj2F11C5Sf8H3RXs0qd0qNpEdnuEjBOhuSsJuSZoQ5paclNQNCa-IxCMmwl2utZUwRiqpX99JVYqLIzj4yPaRe9QhxOb0DryOZe92ru-BNxCUzDX47HQ_JC1VHsyqak2DdlNJb0LwAmZ-HQa2stjKu1tmGZcOTpL' }}
+                                source={{ uri: user?.imageUrl || 'https://lh3.googleusercontent.com/aida-public/AB6AXuDBJyOz_-6WyVDz9F1DjyU4Sk4Q1xEnLu7pSRFuYR8b5kjkyvtWQ1gpDr9cvHCb3XRli6Bq9seBbST2bWtSXvRSlFsz7_I3nlHoRHdwIUEJH5qBgj2F11C5Sf8H3RXs0qd0qNpEdnuEjBOhuSsJuSZoQ5paclNQNCa-IxCMmwl2utZUwRiqpX99JVYqLIzj4yPaRe9QhxOb0DryOZe92ru-BNxCUzDX47HQ_JC1VHsyqak2DdlNJb0LwAmZ-HQa2stjKu1tmGZcOTpL' }}
                                 className="h-12 w-12 rounded-full border-2 border-primary/20"
                             />
                             <View className="absolute -bottom-1 -right-1 bg-surface rounded-full p-0.5 border border-primary/10">
@@ -107,7 +161,15 @@ export default function DashboardScreen() {
             </View>
 
             <ScrollView className="flex-1 px-6 pt-6" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-                {/* System Insight */}
+                {/* AI Mentor Greeting */}
+                {mentorLoading ? (
+                    <View className="mb-4 flex-row items-center gap-2 px-1">
+                        <ActivityIndicator size="small" color="#6B8E23" />
+                        <Text className="text-xs text-text-muted font-mono">Oracle is analyzing your progress...</Text>
+                    </View>
+                ) : null}
+
+                {/* System Insight — AI Driven */}
                 <View className="mb-6">
                     <View className="flex-row items-center gap-2 px-1 mb-2">
                         <MaterialIcons name="psychology" size={18} color="#6366f1" />
@@ -118,30 +180,52 @@ export default function DashboardScreen() {
                             <MaterialIcons name="ads-click" size={24} color="#4f46e5" />
                         </View>
                         <View className="flex-1">
-                            <Text className="text-sm font-bold text-indigo-900 dark:text-indigo-100 mb-1">Boss Weakness Detected</Text>
+                            <Text className="text-sm font-bold text-indigo-900 dark:text-indigo-100 mb-1">{insightTitle}</Text>
                             <Text className="text-xs text-indigo-800/70 dark:text-indigo-300/70 leading-relaxed">
-                                Operating Systems Unit 3 is <Text className="font-bold text-indigo-600 dark:text-indigo-400">high-weightage</Text> and <Text className="font-bold text-indigo-600 dark:text-indigo-400">low-effort</Text>. Prioritize this for maximum efficiency.
+                                {insightMessage}
                             </Text>
                         </View>
                     </View>
                 </View>
 
-                {/* Daily Mission */}
-                {dailyMission && (
+                {/* Empty State — No quests yet */}
+                {quests.length === 0 && !mentorLoading ? (
+                    <View className="items-center py-12 px-4">
+                        <View className="w-20 h-20 rounded-full bg-primary/10 items-center justify-center mb-4">
+                            <MaterialIcons name="auto-awesome" size={40} color="#6B8E23" />
+                        </View>
+                        <Text className="text-xl font-bold text-text-main dark:text-white text-center mb-2">
+                            No Missions Yet
+                        </Text>
+                        <Text className="text-text-muted text-center text-sm mb-6">
+                            The Oracle hasn't generated your quests yet. Complete onboarding or recalibrate to get your study path.
+                        </Text>
+                        <TouchableOpacity
+                            onPress={() => navigation.navigate('Onboarding')}
+                            className="bg-primary px-8 py-4 rounded-2xl flex-row items-center gap-2"
+                        >
+                            <MaterialIcons name="refresh" size={18} color="white" />
+                            <Text className="text-white font-bold">Start Onboarding</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : null}
+
+                {/* Daily Mission — AI Picked */}
+                {dailyMission && quests.length > 0 && (
                     <View className="mb-8">
                         <View className="flex-row items-center justify-between mb-4">
                             <Text className="text-xl font-bold text-text-main dark:text-white font-display">Daily Mission</Text>
-                            <Text className="text-[10px] font-mono text-text-muted bg-surface dark:bg-surface-dark px-2 py-1 rounded-md border border-primary/10">PRIORITY: HIGH</Text>
+                            <Text className="text-[10px] font-mono text-text-muted bg-surface dark:bg-surface-dark px-2 py-1 rounded-md border border-primary/10">AI PRIORITY</Text>
                         </View>
 
                         <TouchableOpacity
-                            onPress={() => navigation.navigate('Quest')}
+                            onPress={() => navigation.navigate('TopicDetail', { questId: dailyMission.id })}
                             className="bg-surface dark:bg-surface-dark rounded-2xl p-6 border border-primary/5 shadow-sm active:opacity-80 transition-opacity">
                             <View className="flex-row items-center gap-2 mb-2">
                                 <Text className="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Quest Line: {dailyMission.title}</Text>
                             </View>
                             <Text className="text-2xl font-bold text-text-main dark:text-white leading-tight font-display mb-2">
-                                {dailyMission.tasks.find(t => !t.completed)?.title || 'All Tasks Complete!'}
+                                {dailyMission.tasks.find(t => !t.completed)?.title || 'All Tasks Complete! 🎉'}
                             </Text>
                             <Text className="text-text-muted text-sm font-body leading-relaxed mb-6">
                                 Progress: {getProgress(dailyMission)}% complete • {dailyMission.tasks.filter(t => !t.completed).length} tasks remaining
@@ -163,33 +247,35 @@ export default function DashboardScreen() {
                                 <Text className="text-white font-bold font-display tracking-wider">ENGAGE MISSION</Text>
                             </View>
                         </TouchableOpacity>
-                        <Text className="text-center text-xs text-text-muted italic font-body opacity-60 mt-4">"Consistency is the path to mastery."</Text>
+                        <Text className="text-center text-xs text-text-muted italic font-body opacity-60 mt-4">{mentorGreeting}</Text>
                     </View>
                 )}
 
-                {/* Side Quests */}
-                <View className="mb-6">
-                    <Text className="text-lg font-bold text-text-main dark:text-white font-display mb-4 px-1">Side Quests</Text>
+                {/* Side Quests — AI Ordered */}
+                {sideQuests.length > 0 && (
+                    <View className="mb-6">
+                        <Text className="text-lg font-bold text-text-main dark:text-white font-display mb-4 px-1">Side Quests</Text>
 
-                    {sideQuests.map((quest) => (
-                        <TouchableOpacity
-                            key={quest.id}
-                            onPress={() => navigation.navigate('Quest')}
-                            className="flex-row items-center gap-4 p-4 bg-surface dark:bg-background-dark rounded-xl border border-primary/10 shadow-sm mb-3">
-                            <View className="h-10 w-10 rounded-full items-center justify-center" style={{ backgroundColor: quest.iconColor + '15' }}>
-                                <MaterialIcons name={quest.icon as any} size={20} color={quest.iconColor} />
-                            </View>
-                            <View className="flex-1">
-                                <Text className="text-sm font-bold text-text-main dark:text-white">{quest.title}</Text>
-                                <View className="flex-row items-center gap-2 mt-1">
-                                    <Text className="text-[10px] font-mono text-text-muted bg-surface dark:bg-surface-dark px-1.5 rounded">{getProgress(quest)}%</Text>
-                                    <Text className="text-[10px] font-mono text-gold font-medium">+{quest.tasks.reduce((s, t) => s + t.xp, 0)} XP</Text>
+                        {sideQuests.map((quest) => (
+                            <TouchableOpacity
+                                key={quest.id}
+                                onPress={() => navigation.navigate('TopicDetail', { questId: quest.id })}
+                                className="flex-row items-center gap-4 p-4 bg-surface dark:bg-background-dark rounded-xl border border-primary/10 shadow-sm mb-3">
+                                <View className="h-10 w-10 rounded-full items-center justify-center" style={{ backgroundColor: quest.iconColor + '15' }}>
+                                    <MaterialIcons name={quest.icon as any} size={20} color={quest.iconColor} />
                                 </View>
-                            </View>
-                            <MaterialIcons name="chevron-right" size={20} color="#95A5A6" />
-                        </TouchableOpacity>
-                    ))}
-                </View>
+                                <View className="flex-1">
+                                    <Text className="text-sm font-bold text-text-main dark:text-white">{quest.title}</Text>
+                                    <View className="flex-row items-center gap-2 mt-1">
+                                        <Text className="text-[10px] font-mono text-text-muted bg-surface dark:bg-surface-dark px-1.5 rounded">{getProgress(quest)}%</Text>
+                                        <Text className="text-[10px] font-mono text-gold font-medium">+{quest.tasks.reduce((s, t) => s + t.xp, 0)} XP</Text>
+                                    </View>
+                                </View>
+                                <MaterialIcons name="chevron-right" size={20} color="#95A5A6" />
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                )}
             </ScrollView>
             <FloatingMenu />
         </SafeAreaView>

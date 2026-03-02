@@ -6,6 +6,8 @@ import { StatusBar } from 'expo-status-bar';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { useAnimatedProps, useSharedValue, runOnJS } from 'react-native-reanimated';
+import { useMentor } from '../context/MentorContext';
+import { useQuests } from '../context/QuestContext';
 
 // Animated SVG components
 const AnimatedPath = Animated.createAnimatedComponent(Path);
@@ -17,6 +19,13 @@ export default function FocusScreen({ navigation }: any) {
     const { colorScheme } = useColorScheme();
     const isDark = colorScheme === 'dark';
     const { width: windowWidth } = useWindowDimensions();
+    const { mentorState } = useMentor();
+    const { quests } = useQuests();
+
+    // AI-suggested focus: use daily mission's next incomplete task
+    const focusQuest = mentorState?.dailyMission || quests[0];
+    const focusTask = focusQuest?.tasks.find(t => !t.completed);
+    const focusLabel = focusTask?.title || focusQuest?.title || 'Deep Focus';
 
     const SLIDER_SIZE = Math.min(windowWidth * 0.85, 400); // Capped at 400px for PC
     const RADIUS = SLIDER_SIZE * 0.42;
@@ -129,7 +138,7 @@ export default function FocusScreen({ navigation }: any) {
                 </TouchableOpacity>
                 <View className="flex-row items-center gap-2 bg-surface dark:bg-surface-dark px-4 py-2 rounded-full border border-primary/20">
                     <MaterialIcons name="local-fire-department" size={16} color={isDark ? "#fbd38d" : "#E67E22"} />
-                    <Text className="text-text-main dark:text-white font-bold text-xs uppercase tracking-wider">Thermodynamics II</Text>
+                    <Text className="text-text-main dark:text-white font-bold text-xs uppercase tracking-wider" numberOfLines={1}>{focusLabel}</Text>
                 </View>
             </View>
 
@@ -235,7 +244,7 @@ export default function FocusScreen({ navigation }: any) {
             {/* --- Footer Motivation --- */}
             <View className="pb-12 items-center">
                 <Text className="text-text-muted text-xs font-medium italic opacity-60">
-                    "Discipline is the bridge between goals and accomplishment."
+                    {mentorState?.mentorMessage || '"Discipline is the bridge between goals and accomplishment."'}
                 </Text>
             </View>
 

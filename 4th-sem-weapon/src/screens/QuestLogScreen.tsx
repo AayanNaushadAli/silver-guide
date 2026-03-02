@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, LayoutAnimation, Platform, UIManager, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import { useNavigation } from '@react-navigation/native';
 import { useQuests, Quest } from '../context/QuestContext';
+import { useMentor } from '../context/MentorContext';
 
 
 
@@ -14,8 +15,8 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 // --- The Custom Accordion Component ---
 const QuestCard = ({
-    quest, onToggleTask
-}: { quest: Quest, onToggleTask: (questId: string, taskIndex: number) => void }) => {
+    quest, onToggleTask, onNavigateDetail
+}: { quest: Quest, onToggleTask: (questId: string, taskIndex: number) => void, onNavigateDetail: (questId: string) => void }) => {
     const { colorScheme } = useColorScheme();
     const isDark = colorScheme === 'dark';
     const [isOpen, setIsOpen] = useState(false);
@@ -30,7 +31,7 @@ const QuestCard = ({
     return (
         <View className="bg-surface dark:bg-surface-dark rounded-2xl shadow-sm overflow-hidden mb-4 border border-primary/10">
             {/* Quest Header (Always Visible) */}
-            <TouchableOpacity onPress={toggleAccordion} activeOpacity={0.7} className="p-4 flex-row items-center">
+            <TouchableOpacity onPress={() => onNavigateDetail(quest.id)} activeOpacity={0.7} className="p-4 flex-row items-center">
 
                 {/* Icon */}
                 <View className="w-12 h-12 rounded-full bg-background-light dark:bg-background-dark flex items-center justify-center shadow-sm mr-4">
@@ -106,10 +107,32 @@ export default function QuestLogScreen() {
     const isDark = colorScheme === 'dark';
     const navigation = useNavigation<any>();
     const { quests, toggleTask, getProgress } = useQuests();
+    const { reviewTaskCompletion, refreshBriefing } = useMentor();
 
     const overallProgress = quests.length > 0
         ? Math.round(quests.reduce((sum, q) => sum + getProgress(q), 0) / quests.length)
         : 0;
+
+    // AI-enhanced task toggle: complete task → AI reviews → gives feedback
+    const handleTaskToggle = async (questId: string, taskIndex: number) => {
+        // Toggle the task first (optimistic UI)
+        toggleTask(questId, taskIndex);
+
+        // Check if it's being marked as completed (not un-completed)
+        const quest = quests.find(q => q.id === questId);
+        if (quest && !quest.tasks[taskIndex].completed) {
+            // AI reviews the completed task
+            const praise = await reviewTaskCompletion(questId, taskIndex);
+            if (praise) {
+                Alert.alert('⚡ Oracle Says', praise);
+            }
+        }
+    };
+
+    // Recalibrate: navigate to full recalibration screen
+    const handleRecalibrate = () => {
+        navigation.navigate('SystemRecalibration');
+    };
 
     return (
         <SafeAreaView className="flex-1 bg-background-light dark:bg-background-dark">
@@ -124,13 +147,23 @@ export default function QuestLogScreen() {
                         </Text>
                     </View>
 
-                    {/* Add Quest Button */}
-                    <TouchableOpacity
-                        onPress={() => navigation.navigate('AddQuest')}
-                        className="flex-row items-center gap-2 bg-surface dark:bg-surface-dark px-4 py-2 rounded-full shadow-sm border border-primary/10 active:opacity-70">
-                        <MaterialIcons name="add-circle" size={20} color="#6B8E23" />
-                        <Text className="font-bold text-sm text-text-main dark:text-white">Add Quest</Text>
-                    </TouchableOpacity>
+                    <View className="flex-row items-center gap-2">
+                        {/* Recalibrate Button */}
+                        <TouchableOpacity
+                            onPress={handleRecalibrate}
+                            className="flex-row items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-2 rounded-full border border-indigo-200 dark:border-indigo-800/50 active:opacity-70">
+                            <MaterialIcons name="sync" size={16} color="#6366f1" />
+                            <Text className="font-bold text-xs text-indigo-600 dark:text-indigo-400">Recalibrate</Text>
+                        </TouchableOpacity>
+
+                        {/* Add Quest Button */}
+                        <TouchableOpacity
+                            onPress={() => navigation.navigate('CustomizePath')}
+                            className="flex-row items-center gap-1.5 bg-surface dark:bg-surface-dark px-3 py-2 rounded-full shadow-sm border border-primary/10 active:opacity-70">
+                            <MaterialIcons name="add-circle" size={16} color="#6B8E23" />
+                            <Text className="font-bold text-xs text-text-main dark:text-white">Add Quest</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* Global Progress Bar */}
@@ -146,7 +179,8 @@ export default function QuestLogScreen() {
                     <QuestCard
                         key={quest.id}
                         quest={quest}
-                        onToggleTask={toggleTask}
+                        onToggleTask={handleTaskToggle}
+                        onNavigateDetail={(id) => navigation.navigate('TopicDetail', { questId: id })}
                     />
                 ))}
 
@@ -164,3 +198,4 @@ export default function QuestLogScreen() {
         </SafeAreaView>
     );
 }
+

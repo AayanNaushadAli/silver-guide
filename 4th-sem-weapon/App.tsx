@@ -21,6 +21,11 @@ import ChatScreen from './src/screens/ChatScreen';
 import QuestLogScreen from './src/screens/QuestLogScreen';
 import AddQuestScreen from './src/screens/AddQuestScreen';
 import FocusScreen from './src/screens/FocusScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
+import OracleProcessingScreen from './src/screens/OracleProcessingScreen';
+import SystemRecalibrationScreen from './src/screens/SystemRecalibrationScreen';
+import TopicDetailScreen from './src/screens/TopicDetailScreen';
+import CustomizePathScreen from './src/screens/CustomizePathScreen';
 
 
 const PlaceholderScreen = ({ name }: { name: string }) => (
@@ -135,6 +140,7 @@ function MainTabs() {
 
 
 import { QuestProvider } from './src/context/QuestContext';
+import { MentorProvider } from './src/context/MentorContext';
 
 
 export default function App() {
@@ -164,24 +170,31 @@ export default function App() {
         <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} />
         <ClerkLoaded>
           <QuestProvider>
-            <NavigationContainer>
-              <SignedIn>
-                <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
-                  <Stack.Screen name="MainTabs" component={MainTabs} />
-                  <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
-                  <Stack.Screen name="Settings" component={SettingsScreen} />
-                  <Stack.Screen name="Focus" component={FocusScreen} options={{ presentation: 'modal' }} />
-                  <Stack.Screen
-                    name="AddQuest"
-                    component={AddQuestScreen}
-                    options={{ presentation: 'modal' }}
-                  />
-                </Stack.Navigator>
-              </SignedIn>
-              <SignedOut>
-                <LoginScreen />
-              </SignedOut>
-            </NavigationContainer>
+            <MentorProvider>
+              <NavigationContainer>
+                <SignedIn>
+                  <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
+                    <Stack.Screen name="MainTabs" component={MainTabs} />
+                    <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+                    <Stack.Screen name="OracleProcessing" component={OracleProcessingScreen} />
+                    <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
+                    <Stack.Screen name="Settings" component={SettingsScreen} />
+                    <Stack.Screen name="Focus" component={FocusScreen} options={{ presentation: 'modal' }} />
+                    <Stack.Screen name="SystemRecalibration" component={SystemRecalibrationScreen} />
+                    <Stack.Screen name="TopicDetail" component={TopicDetailScreen} />
+                    <Stack.Screen name="CustomizePath" component={CustomizePathScreen} />
+                    <Stack.Screen
+                      name="AddQuest"
+                      component={AddQuestScreen}
+                      options={{ presentation: 'modal' }}
+                    />
+                  </Stack.Navigator>
+                </SignedIn>
+                <SignedOut>
+                  <LoginScreen />
+                </SignedOut>
+              </NavigationContainer>
+            </MentorProvider>
           </QuestProvider>
         </ClerkLoaded>
       </SafeAreaView>

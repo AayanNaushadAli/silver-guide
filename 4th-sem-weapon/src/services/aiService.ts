@@ -71,7 +71,14 @@ export function parseQuestFromResponse(response: string): { quest: any | null, c
     }
 
     try {
-        const questData = JSON.parse(match[1]);
+        // Strip markdown formatting the AI might add (**, ```, etc.)
+        let jsonStr = match[1]
+            .replace(/```json\s*/g, '')
+            .replace(/```\s*/g, '')
+            .replace(/\*\*/g, '')
+            .trim();
+
+        const questData = JSON.parse(jsonStr);
         // Remove the JSON block from the displayed message
         const cleanMessage = response.replace(questRegex, '').trim();
         return { quest: questData, cleanMessage };

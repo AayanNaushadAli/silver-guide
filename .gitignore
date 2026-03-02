@@ -1,0 +1,15 @@
+# Videos and large media
+problem and report/*.mp4
+*.mp4
+
+# Node
+node_modules/
+.expo/
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
