@@ -31,7 +31,7 @@ const QuestCard = ({
     return (
         <View className="bg-surface dark:bg-surface-dark rounded-2xl shadow-sm overflow-hidden mb-4 border border-primary/10">
             {/* Quest Header (Always Visible) */}
-            <TouchableOpacity onPress={() => onNavigateDetail(quest.id)} activeOpacity={0.7} className="p-4 flex-row items-center">
+            <TouchableOpacity onPress={toggleAccordion} activeOpacity={0.7} className="p-4 flex-row items-center">
 
                 {/* Icon */}
                 <View className="w-12 h-12 rounded-full bg-background-light dark:bg-background-dark flex items-center justify-center shadow-sm mr-4">
@@ -94,6 +94,14 @@ const QuestCard = ({
                             </View>
                         </TouchableOpacity>
                     ))}
+
+                    <TouchableOpacity
+                        onPress={() => onNavigateDetail(quest.id)}
+                        className="mt-3 flex-row items-center justify-center bg-primary/10 py-3 rounded-xl border border-primary/20 active:opacity-70"
+                    >
+                        <MaterialIcons name="local-library" size={18} color="#6B8E23" className="mr-2" />
+                        <Text className="text-primary font-bold text-sm ml-2">Deep Dive & Focus</Text>
+                    </TouchableOpacity>
                 </View>
             )}
         </View>

@@ -1,27 +1,95 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useUser } from '@clerk/clerk-expo';
+import { useUser, useAuth } from '@clerk/clerk-expo';
 import { useColorScheme } from 'nativewind';
+import { createClerkSupabaseClient } from '../database/supabaseClient';
 
 export default function LeaderboardScreen({ navigation }: any) {
     const [activeTab, setActiveTab] = useState('Global');
     const { user } = useUser();
+    const { getToken } = useAuth();
     const { colorScheme } = useColorScheme();
     const isDarkMode = colorScheme === 'dark';
 
-    // Mock Data: The 4th-Semester Rivals
-    const topPlayers = {
-        first: { name: 'Yuki', pts: '15.8k', avatar: 'https://i.pravatar.cc/150?img=68' },
-        second: { name: 'Satoshi', pts: '12.4k', avatar: 'https://i.pravatar.cc/150?img=47' },
-        third: { name: 'Hana', pts: '11.1k', avatar: 'https://i.pravatar.cc/150?img=5' }
+    const [leaderboard, setLeaderboard] = useState<any[]>([]);
+    const [currentUserStat, setCurrentUserStat] = useState<any>(null);
+    const [currentUserRank, setCurrentUserRank] = useState<number>(0);
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Fetch Leaderboard from DB
+    useEffect(() => {
+        async function fetchLeaderboard() {
+            if (!user) return;
+            setIsLoading(true);
+            try {
+                const token = await getToken({ template: 'Supabase' });
+                if (!token) return;
+                const supabase = createClerkSupabaseClient(token);
+
+                // Fetch top 10 players globally
+                const { data: topPlayers, error } = await supabase
+                    .from('player_stats')
+                    .select('clerk_user_id, name, level, total_xp')
+                    .order('total_xp', { ascending: false })
+                    .limit(10);
+
+                if (topPlayers) {
+                    setLeaderboard(topPlayers);
+
+                    // Find current user in the top 10
+                    const rankIndex = topPlayers.findIndex(p => p.clerk_user_id === user.id);
+                    if (rankIndex !== -1) {
+                        setCurrentUserRank(rankIndex + 1);
+                        setCurrentUserStat(topPlayers[rankIndex]);
+                    } else {
+                        // If not in top 10, fetch their specific stat
+                        const { data: myData } = await supabase
+                            .from('player_stats')
+                            .select('clerk_user_id, name, level, total_xp')
+                            .eq('clerk_user_id', user.id)
+                            .single();
+
+                        if (myData) {
+                            setCurrentUserStat(myData);
+                            // We don't have exact rank outside top 10 without a complex query, default to 10+
+                            setCurrentUserRank(11);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Leaderboard fetch error', error);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+        fetchLeaderboard();
+    }, [user, activeTab]);
+
+    // Format utility for XP
+    const formatXP = (xp: number) => {
+        return xp >= 1000 ? (xp / 1000).toFixed(1) + 'k' : xp.toString();
     };
 
-    const leaderboardList = [
-        { rank: 4, name: 'Marcus', level: 24, pts: '9.2k', avatar: 'https://i.pravatar.cc/150?img=11' },
-        { rank: 5, name: 'Elena', level: 22, pts: '8.8k', avatar: 'https://i.pravatar.cc/150?img=9' },
-        { rank: 6, name: 'Chen', level: 21, pts: '8.5k', avatar: 'https://i.pravatar.cc/150?img=12' },
-    ];
+    // Extract Podium
+    const getAvatar = (id: string, index: number) => `https://i.pravatar.cc/150?u=${id}`;
+
+    // Provide sensible fallbacks if DB is empty
+    const firstPlace = leaderboard.length > 0 ? leaderboard[0] : null;
+    const secondPlace = leaderboard.length > 1 ? leaderboard[1] : null;
+    const thirdPlace = leaderboard.length > 2 ? leaderboard[2] : null;
+    const others = leaderboard.length > 3 ? leaderboard.slice(3) : [];
+
+    if (isLoading) {
+        return (
+            <SafeAreaView className="flex-1 bg-background-light dark:bg-background-dark justify-center items-center">
+                <ActivityIndicator size="large" color="#6B8E23" />
+                <Text className="text-text-muted mt-4 font-mono text-xs uppercase tracking-widest text-primary/70">
+                    Fetching Ranks...
+                </Text>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView className="flex-1 bg-background-light dark:bg-background-dark">
@@ -59,76 +127,89 @@ export default function LeaderboardScreen({ navigation }: any) {
             <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 130 }}>
 
                 {/* --- The 3D Podium --- */}
-                <View className="flex-row justify-center items-end mt-4 mb-10 h-48">
+                {leaderboard.length > 0 ? (
+                    <View className="flex-row justify-center items-end mt-4 mb-10 h-48">
 
-                    {/* 2nd Place */}
-                    <View className="items-center mb-4 z-10">
-                        <View className="relative">
-                            <Image source={{ uri: topPlayers.second.avatar }}
-                                className="w-20 h-20 rounded-full border-4 border-background-light dark:border-surface-dark bg-gray-200" />
-                            <View className="absolute -bottom-3 self-center bg-gray-300 dark:bg-gray-600 px-3 py-1 rounded-full border-2 border-white dark:border-background-dark shadow-sm">
-                                <Text className="text-gray-700 dark:text-white font-bold text-[10px]">2ND</Text>
+                        {/* 2nd Place */}
+                        {secondPlace && (
+                            <View className="items-center mb-4 z-10 w-[30%]">
+                                <View className="relative">
+                                    <Image source={{ uri: getAvatar(secondPlace.clerk_user_id, 2) }}
+                                        className="w-20 h-20 rounded-full border-4 border-background-light dark:border-surface-dark bg-gray-200" />
+                                    <View className="absolute -bottom-3 self-center bg-gray-300 dark:bg-gray-600 px-3 py-1 rounded-full border-2 border-white dark:border-background-dark shadow-sm">
+                                        <Text className="text-gray-700 dark:text-white font-bold text-[10px]">2ND</Text>
+                                    </View>
+                                </View>
+                                <Text className="font-bold text-text-main dark:text-white mt-4" numberOfLines={1}>{secondPlace.name}</Text>
+                                <Text className="text-primary text-xs font-bold">{formatXP(secondPlace.total_xp)} XP</Text>
                             </View>
-                        </View>
-                        <Text className="font-bold text-text-main dark:text-white mt-4">{topPlayers.second.name}</Text>
-                        <Text className="text-primary text-xs font-bold">{topPlayers.second.pts} pts</Text>
-                    </View>
+                        )}
 
-                    {/* 1st Place */}
-                    <View className="items-center mx-4 z-20 mb-8">
-                        <MaterialIcons name="workspace-premium" size={28} color="#F1C40F" className="mb-1" />
-                        <View className="relative">
-                            <Image source={{ uri: topPlayers.first.avatar }}
-                                className="w-24 h-24 rounded-full border-4 border-[#F1C40F] bg-gray-200" />
-                            <View className="absolute -bottom-3 self-center bg-[#F1C40F] px-4 py-1 rounded-full border-2 border-white dark:border-background-dark shadow-sm">
-                                <Text className="text-white font-bold text-[10px]">1ST</Text>
+                        {/* 1st Place */}
+                        {firstPlace && (
+                            <View className="items-center mx-1 z-20 mb-8 w-[35%]">
+                                <MaterialIcons name="workspace-premium" size={28} color="#F1C40F" className="mb-1" />
+                                <View className="relative">
+                                    <Image source={{ uri: getAvatar(firstPlace.clerk_user_id, 1) }}
+                                        className="w-24 h-24 rounded-full border-4 border-[#F1C40F] bg-gray-200" />
+                                    <View className="absolute -bottom-3 self-center bg-[#F1C40F] px-4 py-1 rounded-full border-2 border-white dark:border-background-dark shadow-sm">
+                                        <Text className="text-white font-bold text-[10px]">1ST</Text>
+                                    </View>
+                                </View>
+                                <Text className="font-bold text-text-main dark:text-white text-lg mt-4" numberOfLines={1}>{firstPlace.name}</Text>
+                                <Text className="text-primary font-bold">{formatXP(firstPlace.total_xp)} XP</Text>
                             </View>
-                        </View>
-                        <Text className="font-bold text-text-main dark:text-white text-lg mt-4">{topPlayers.first.name}</Text>
-                        <Text className="text-primary font-bold">{topPlayers.first.pts} pts</Text>
-                    </View>
+                        )}
 
-                    {/* 3rd Place */}
-                    <View className="items-center mb-2 z-10">
-                        <View className="relative">
-                            <Image source={{ uri: topPlayers.third.avatar }}
-                                className="w-16 h-16 rounded-full border-4 border-background-light dark:border-surface-dark bg-gray-200" />
-                            <View className="absolute -bottom-3 self-center bg-orange-400 px-3 py-1 rounded-full border-2 border-white dark:border-background-dark shadow-sm">
-                                <Text className="text-white font-bold text-[10px]">3RD</Text>
+                        {/* 3rd Place */}
+                        {thirdPlace && (
+                            <View className="items-center mb-2 z-10 w-[30%]">
+                                <View className="relative">
+                                    <Image source={{ uri: getAvatar(thirdPlace.clerk_user_id, 3) }}
+                                        className="w-16 h-16 rounded-full border-4 border-background-light dark:border-surface-dark bg-gray-200" />
+                                    <View className="absolute -bottom-3 self-center bg-orange-400 px-3 py-1 rounded-full border-2 border-white dark:border-background-dark shadow-sm">
+                                        <Text className="text-white font-bold text-[10px]">3RD</Text>
+                                    </View>
+                                </View>
+                                <Text className="font-bold text-text-main dark:text-white mt-4" numberOfLines={1}>{thirdPlace.name}</Text>
+                                <Text className="text-primary text-xs font-bold">{formatXP(thirdPlace.total_xp)} XP</Text>
                             </View>
-                        </View>
-                        <Text className="font-bold text-text-main dark:text-white mt-4">{topPlayers.third.name}</Text>
-                        <Text className="text-primary text-xs font-bold">{topPlayers.third.pts} pts</Text>
+                        )}
                     </View>
-                </View>
+                ) : (
+                    <View className="items-center justify-center py-20">
+                        <Text className="text-text-muted font-bold text-center">No rivals found yet.{'\n'}Be the first to claim the top spot!</Text>
+                    </View>
+                )}
 
                 {/* --- The Competitors List --- */}
-                {leaderboardList.map((player) => (
-                    <View key={player.rank} className="flex-row items-center bg-surface dark:bg-surface-dark p-4 rounded-2xl mb-3 border border-primary/10 shadow-sm">
-                        <Text className="w-8 font-bold text-text-muted text-lg">{player.rank}</Text>
-                        <Image source={{ uri: player.avatar }} className="w-12 h-12 rounded-full mr-4 bg-gray-100" />
+                {others.map((player, index) => (
+                    <View key={player.clerk_user_id} className="flex-row items-center bg-surface dark:bg-surface-dark p-4 rounded-2xl mb-3 border border-primary/10 shadow-sm">
+                        <Text className="w-8 font-bold text-text-muted text-lg">{index + 4}</Text>
+                        <Image source={{ uri: getAvatar(player.clerk_user_id, index + 4) }} className="w-12 h-12 rounded-full mr-4 bg-gray-100" />
                         <View className="flex-1">
                             <Text className="font-bold text-text-main dark:text-white text-base">{player.name}</Text>
                             <Text className="text-xs text-text-muted uppercase font-medium mt-0.5">Level {player.level}</Text>
                         </View>
-                        <Text className="font-bold text-primary">{player.pts}</Text>
+                        <Text className="font-bold text-primary">{formatXP(player.total_xp)}</Text>
                     </View>
                 ))}
             </ScrollView>
 
             {/* --- Sticky Current Player Card --- */}
-            <View className="absolute bottom-6 left-6 right-6 bg-primary p-4 rounded-3xl flex-row items-center shadow-lg border border-primary/20">
-                <Text className="w-8 font-bold text-white text-lg">12</Text>
-                <Image source={{ uri: user?.imageUrl || 'https://via.placeholder.com/150' }} className="w-12 h-12 rounded-full mr-4 border-2 border-white/30" />
-                <View className="flex-1">
-                    <Text className="font-bold text-white text-base">You ({user?.firstName || 'Aayan'})</Text>
-                    <Text className="text-[10px] text-white/80 uppercase tracking-wider mt-0.5">Next Rank in 450 pts</Text>
+            {currentUserStat && (
+                <View className="absolute bottom-6 left-6 right-6 bg-primary p-4 rounded-3xl flex-row items-center shadow-lg border border-primary/20">
+                    <Text className="w-8 font-bold text-white text-lg">{currentUserRank <= 10 ? currentUserRank : '10+'}</Text>
+                    <Image source={{ uri: user?.imageUrl || 'https://via.placeholder.com/150' }} className="w-12 h-12 rounded-full mr-4 border-2 border-white/30" />
+                    <View className="flex-1">
+                        <Text className="font-bold text-white text-base" numberOfLines={1}>You ({currentUserStat.name})</Text>
+                        <Text className="text-[10px] text-white/80 uppercase tracking-wider mt-0.5">Level {currentUserStat.level}</Text>
+                    </View>
+                    <View className="items-end">
+                        <Text className="font-bold text-white text-lg">{formatXP(currentUserStat.total_xp)}</Text>
+                    </View>
                 </View>
-                <View className="items-end">
-                    <Text className="font-bold text-white text-lg">6.2k</Text>
-                    <Text className="text-[10px] text-[#F1C40F] font-bold tracking-wider mt-0.5">TOP 12%</Text>
-                </View>
-            </View>
+            )}
 
         </SafeAreaView>
     );

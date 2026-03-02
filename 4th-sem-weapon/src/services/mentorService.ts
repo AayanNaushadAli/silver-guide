@@ -3,9 +3,7 @@ import { getLocalKnowledgeContext } from './knowledgeService';
 import { createClerkSupabaseClient } from '../database/supabaseClient';
 import { Quest, Task } from '../context/QuestContext';
 import { SubjectData } from './knowledgeService';
-
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY || '';
+import { GROQ_API_URL, GROQ_API_KEY, GROQ_MODEL } from './aiConfig';
 
 export interface DailyInsight {
     title: string;
@@ -181,11 +179,22 @@ Return your response ONLY as a clean JSON object in this format:
     /**
      * Internal helper to talk to Groq API
      */
-    async callGroq(systemPrompt: string, userMessage: string, temperature = 0.5): Promise<string> {
+    async callGroq(systemPrompt: string, userMessage: string, temperature = 0.5, requireJson = true): Promise<string> {
         const messages = [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userMessage || "Review state and respond." }
         ];
+
+        const body: any = {
+            model: GROQ_MODEL,
+            messages,
+            temperature,
+            max_tokens: 2500,
+        };
+
+        if (requireJson) {
+            body.response_format = { type: "json_object" };
+        }
 
         const response = await fetch(GROQ_API_URL, {
             method: 'POST',
@@ -193,20 +202,79 @@ Return your response ONLY as a clean JSON object in this format:
                 'Authorization': `Bearer ${GROQ_API_KEY}`,
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-                messages,
-                temperature,
-                max_tokens: 1500,
-                response_format: { type: "json_object" }
-            }),
+            body: JSON.stringify(body),
         });
 
         if (!response.ok) throw new Error('Groq API Error');
         const data = await response.json();
-        return data.choices[0]?.message?.content || '{}';
+        return data.choices[0]?.message?.content || (requireJson ? '{}' : '');
     }
 
+    /**
+     * Analyzes Previous Year Questions (PYQs) and Syllabus to extract critical insights.
+     */
+    async analyzePYQs(syllabusText: string, pyqText: string): Promise<string> {
+        console.log('🤖 AI Mentor: Analyzing PYQs vis-a-vis Syllabus...');
+
+        const systemPrompt = `You are a professional academic examiner and AI mentor. 
+Your goal is to extract crystal-clear insights to help the student in their exam preparation.
+Be highly accurate, fully detailed, and structured like a professional academic analysis. 
+Use clear language, bullet points, and avoid unnecessary explanation. DO NOT output JSON. Use Markdown.`;
+
+        const userPrompt = `
+I am providing previous 5 years exam papers (PYQs) and optionally the syllabus. Analyze every question in detail.
+
+SYLLABUS (Context):
+${syllabusText || 'Not provided'}
+
+PYQs to Analyze:
+${pyqText}
+
+Deliver the analysis EXACTLY in this Markdown structure:
+
+1️⃣ Repeated Questions Analysis
+* Identify all questions that repeat across the years.
+* Mention frequency (kitni baar poocha gaya).
+* Highlight repeated topics + exact years.
+
+2️⃣ Important Topics Priority List
+* Categorize every question topic-wise based on the syllabus.
+* Identify high-weightage topics (frequent + marks-heavy).
+* Give a prioritized study roadmap.
+
+3️⃣ Chapter-wise Weightage
+* Calculate which chapters have the highest number of questions overall.
+* Present a percentage distribution.
+
+4️⃣ Question Type Classification
+* Theory questions
+* Numerical/derivations
+* Short notes / definitions
+* Diagrams / case studies (if any)
+
+5️⃣ Difficulty Assessment
+* Mark each question/topic as Easy / Moderate / Hard
+* Give basis of repetition, conceptual depth, marks allocation.
+
+6️⃣ Hidden Patterns & Examiner Intent
+* Which concepts do examiners love repeating?
+* Any shift in pattern in the last 2–3 years?
+
+7️⃣ Final Output Summary
+* Top 10 most expected questions
+* Top 5 must-study chapters
+* Smart last-minute study plan
+`;
+
+        try {
+            // requireJson is false for this call to get raw beautifully formatted Markdown
+            const resp = await this.callGroq(systemPrompt, userPrompt, 0.4, false);
+            return resp;
+        } catch (e) {
+            console.error('❌ AI Mentor: Failed to analyze PYQs:', e);
+            throw e;
+        }
+    }
     fallbackBriefing(quests: Quest[]): MentorUpdate {
         return {
             dailyMission: quests[0] || null,

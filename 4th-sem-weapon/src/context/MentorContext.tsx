@@ -34,11 +34,20 @@ export function MentorProvider({ children }: { children: ReactNode }) {
         if (!user) return;
         setIsLoading(true);
         try {
-            // Check for cached session in DB first
             const token = await getToken({ template: 'Supabase' });
             if (!token) return;
             const supabase = createClerkSupabaseClient(token);
 
+            // Fetch REAL player stats from Supabase
+            const { data: playerData } = await supabase
+                .from('player_stats')
+                .select('level, total_xp, streak_days, semester, branch, focus_mode, target_cgpa')
+                .eq('clerk_user_id', user.id)
+                .single();
+
+            const playerStats = playerData || { level: 1, total_xp: 0, streak_days: 0 };
+
+            // Check for cached session in DB first
             const { data: cached } = await supabase
                 .from('mentor_sessions')
                 .select('*')
@@ -50,12 +59,12 @@ export function MentorProvider({ children }: { children: ReactNode }) {
 
             // If cached session is from today, use it to save API credits
             const today = new Date().toISOString().split('T')[0];
-            if (cached && cached.created_at.startsWith(today)) {
+            if (cached && cached.created_at?.startsWith(today)) {
                 console.log('📦 MentorContext: Using cached daily briefing');
                 setMentorState(cached.ai_response);
             } else {
-                // Otherwise, generate new one
-                const briefing = await mentorService.generateDailyBriefing(quests, { level: 1, total_xp: 0 });
+                // Generate new briefing with REAL player stats
+                const briefing = await mentorService.generateDailyBriefing(quests, playerStats);
                 setMentorState(briefing);
 
                 // Save to DB for caching
@@ -67,6 +76,8 @@ export function MentorProvider({ children }: { children: ReactNode }) {
             }
         } catch (e) {
             console.error('❌ MentorContext: Refresh failed:', e);
+            // Use fallback instead of crashing
+            setMentorState(mentorService.fallbackBriefing(quests));
         } finally {
             setIsLoading(false);
         }

@@ -104,10 +104,13 @@ export function QuestProvider({ children }: { children: ReactNode }) {
         const currentQuest = quests.find(q => q.id === questId);
         if (!currentQuest) return;
 
+        const currentTask = currentQuest.tasks[taskIndex];
+        const isNowCompleted = !currentTask.completed;
+
         const updatedTasks = [...currentQuest.tasks];
         updatedTasks[taskIndex] = {
-            ...updatedTasks[taskIndex],
-            completed: !updatedTasks[taskIndex].completed,
+            ...currentTask,
+            completed: isNowCompleted,
         };
         const modifiedQuest = { ...currentQuest, tasks: updatedTasks };
 
@@ -117,13 +120,41 @@ export function QuestProvider({ children }: { children: ReactNode }) {
         try {
             const supabase = await getSupabase();
             if (!supabase) return;
+
+            // Sync task state
             await supabase
                 .from('quests')
                 .update({ tasks: modifiedQuest.tasks })
                 .eq('id', questId)
                 .eq('clerk_user_id', user.id);
+
+            // --- XP & LEVEL & QUESTS COMPLETION SYNC ---
+            const { data: stats } = await supabase
+                .from('player_stats')
+                .select('total_xp, level, quests_completed')
+                .eq('clerk_user_id', user.id)
+                .single();
+
+            if (stats) {
+                const xpChange = isNowCompleted ? currentTask.xp : -currentTask.xp;
+                const newTotalXP = Math.max(0, (stats.total_xp || 0) + xpChange);
+                const newLevel = Math.floor(newTotalXP / 2000) + 1; // 2000 XP per level
+
+                // Only increment on completion, decrement if un-checking
+                const questChange = isNowCompleted ? 1 : -1;
+                const newQuestsCompleted = Math.max(0, (stats.quests_completed || 0) + questChange);
+
+                await supabase
+                    .from('player_stats')
+                    .update({
+                        total_xp: newTotalXP,
+                        level: newLevel,
+                        quests_completed: newQuestsCompleted
+                    })
+                    .eq('clerk_user_id', user.id);
+            }
         } catch (err) {
-            console.error("Failed to sync task toggle:", err);
+            console.error("Failed to sync task toggle and XP:", err);
         }
     };
 

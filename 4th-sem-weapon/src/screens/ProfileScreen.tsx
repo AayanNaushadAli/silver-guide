@@ -1,14 +1,47 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import Svg, { Polygon, Line, Text as SvgText } from 'react-native-svg';
-import { useUser } from '@clerk/clerk-expo';
+import { useUser, useAuth } from '@clerk/clerk-expo';
 import { useColorScheme } from 'nativewind';
+import { createClerkSupabaseClient } from '../database/supabaseClient';
+import { useQuests } from '../context/QuestContext';
 
 export default function ProfileScreen({ navigation }: any) {
     const { user } = useUser();
+    const { getToken } = useAuth();
+    const { quests } = useQuests();
     const { colorScheme } = useColorScheme();
     const isDarkMode = colorScheme === 'dark';
+
+    const [playerStats, setPlayerStats] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Fetch actual player stats from DB
+    useEffect(() => {
+        async function fetchStats() {
+            if (!user) return;
+            setIsLoading(true);
+            try {
+                const token = await getToken({ template: 'Supabase' });
+                if (!token) return;
+                const supabase = createClerkSupabaseClient(token);
+
+                const { data } = await supabase
+                    .from('player_stats')
+                    .select('*')
+                    .eq('clerk_user_id', user.id)
+                    .single();
+
+                if (data) setPlayerStats(data);
+            } catch (error) {
+                console.error('Profile DB fetch error', error);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+        fetchStats();
+    }, [user]);
 
     // Radar Chart Colors
     const radarGridColor = isDarkMode ? '#2a3020' : '#E2E8F0';
@@ -19,16 +52,33 @@ export default function ProfileScreen({ navigation }: any) {
     // Navigation Icons Unfocused Color
     const navIconColor = isDarkMode ? '#95A5A6' : '#64748b';
 
+    // Data mapping
+    const focusHours = Math.floor((playerStats?.focus_time_minutes || 0) / 60);
+    const questsCompleted = playerStats?.quests_completed || 0;
+    const streakDays = playerStats?.streak_days || 0;
+    const level = playerStats?.level || 1;
 
-    // Mock Badges Data for the grid
+    // Dynamic Badges Data for the grid
     const badges = [
-        { id: 1, name: 'Derivative Master', icon: 'functions', color: 'text-blue-500', bg: 'bg-white dark:bg-background-dark', unlocked: true },
-        { id: 2, name: 'Thermo Survivor', icon: 'local-fire-department', color: 'text-orange-500', bg: 'bg-white dark:bg-background-dark', unlocked: true },
-        { id: 3, name: 'Early Bird', icon: 'alarm-on', color: 'text-yellow-500', bg: 'bg-white dark:bg-background-dark', unlocked: true },
-        { id: 4, name: 'Deep Focus', icon: 'psychology', color: 'text-purple-500', bg: 'bg-white dark:bg-background-dark', unlocked: true },
-        { id: 5, name: "Dean's List", icon: 'school', color: 'text-gray-400', bg: 'bg-surface dark:bg-surface-dark', unlocked: false },
-        { id: 6, name: 'High Voltage', icon: 'bolt', color: 'text-gray-400', bg: 'bg-surface dark:bg-surface-dark', unlocked: false },
+        { id: 1, name: 'Novice', icon: 'hiking', color: 'text-blue-500', bg: 'bg-white dark:bg-background-dark', unlocked: level >= 1 },
+        { id: 2, name: 'Consistent', icon: 'local-fire-department', color: 'text-orange-500', bg: 'bg-white dark:bg-background-dark', unlocked: streakDays >= 3 },
+        { id: 3, name: 'Scholar', icon: 'menu-book', color: 'text-yellow-500', bg: 'bg-white dark:bg-background-dark', unlocked: questsCompleted >= 10 },
+        { id: 4, name: 'Deep Focus', icon: 'psychology', color: 'text-purple-500', bg: 'bg-white dark:bg-background-dark', unlocked: focusHours > 0 },
+        { id: 5, name: "Dean's List", icon: 'school', color: 'text-amber-400', bg: 'bg-surface dark:bg-surface-dark', unlocked: level >= 10 },
+        { id: 6, name: 'High Voltage', icon: 'bolt', color: 'text-rose-500', bg: 'bg-surface dark:bg-surface-dark', unlocked: streakDays >= 7 },
     ];
+
+    if (isLoading) {
+        return (
+            <SafeAreaView className="flex-1 bg-background-light dark:bg-background-dark justify-center items-center">
+                <ActivityIndicator size="large" color="#6B8E23" />
+            </SafeAreaView>
+        );
+    }
+
+    const xpForNextLevel = 2000;
+    const currentXp = playerStats?.total_xp || 0;
+    const xpPercent = Math.min((currentXp / xpForNextLevel) * 100, 100);
 
     return (
         <SafeAreaView className="flex-1 bg-background-light dark:bg-background-dark">
@@ -50,21 +100,21 @@ export default function ProfileScreen({ navigation }: any) {
                             className="w-24 h-24 rounded-full border-4 border-surface dark:border-background-dark"
                         />
                         <View className="absolute -bottom-2 -right-2 bg-primary px-2 py-1 rounded-full border-2 border-surface dark:border-background-dark">
-                            <Text className="text-white text-[10px] font-bold font-mono">LVL 12</Text>
+                            <Text className="text-white text-[10px] font-bold font-mono">LVL {playerStats?.level || 1}</Text>
                         </View>
                     </View>
 
-                    <Text className="text-2xl font-bold text-text-main dark:text-white font-display">{user?.firstName || 'Seeker'} the Novice</Text>
-                    <Text className="text-text-muted text-xs mb-4 font-body">Software Engineering • Semester 4</Text>
+                    <Text className="text-2xl font-bold text-text-main dark:text-white font-display">{playerStats?.name || user?.firstName || 'Seeker'}</Text>
+                    <Text className="text-text-muted text-xs mb-4 font-body">{playerStats?.branch?.toUpperCase() || 'Core'} Engineering • Semester {playerStats?.semester || 4}</Text>
 
                     {/* XP Bar */}
                     <View className="w-full max-w-[200px]">
                         <View className="flex-row justify-between mb-1">
-                            <Text className="text-[10px] text-primary font-bold font-mono">1,250 XP</Text>
-                            <Text className="text-[10px] text-text-muted font-mono">2,000 XP</Text>
+                            <Text className="text-[10px] text-primary font-bold font-mono">{currentXp} XP</Text>
+                            <Text className="text-[10px] text-text-muted font-mono">{xpForNextLevel} XP</Text>
                         </View>
                         <View className="h-2 w-full bg-surface dark:bg-surface-dark rounded-full overflow-hidden border border-primary/5">
-                            <View className="h-full bg-gold w-[62%] rounded-full" />
+                            <View className="h-full bg-gold rounded-full" style={{ width: `${xpPercent}%` }} />
                         </View>
                     </View>
                 </View>
@@ -95,16 +145,16 @@ export default function ProfileScreen({ navigation }: any) {
                 {/* --- Stats Row --- */}
                 <View className="bg-surface dark:bg-surface-dark border border-primary/5 rounded-2xl p-4 flex-row justify-between mb-8 shadow-sm">
                     <View className="items-center flex-1 border-r border-primary/10">
-                        <Text className="text-2xl font-bold text-text-main dark:text-white font-mono">124<Text className="text-sm font-normal text-text-muted">h</Text></Text>
+                        <Text className="text-2xl font-bold text-text-main dark:text-white font-mono">{focusHours}<Text className="text-sm font-normal text-text-muted">h</Text></Text>
                         <Text className="text-[10px] text-text-muted uppercase font-bold mt-1 tracking-wider font-mono">Total Focus</Text>
                     </View>
                     <View className="items-center flex-1 border-r border-primary/10">
-                        <Text className="text-2xl font-bold text-text-main dark:text-white font-mono">42</Text>
+                        <Text className="text-2xl font-bold text-text-main dark:text-white font-mono">{questsCompleted}</Text>
                         <Text className="text-[10px] text-text-muted uppercase font-bold mt-1 tracking-wider font-mono">Quests</Text>
                     </View>
                     <View className="items-center flex-1">
-                        <Text className="text-2xl font-bold text-accent font-mono">14<Text className="text-base">🔥</Text></Text>
-                        <Text className="text-[10px] text-text-muted uppercase font-bold mt-1 tracking-wider font-mono">Streak</Text>
+                        <Text className="text-2xl font-bold text-accent font-mono">{streakDays}<Text className="text-base">🔥</Text></Text>
+                        <Text className="text-[10px] text-text-muted uppercase font-bold mt-1 tracking-wider font-mono">Day Streak</Text>
                     </View>
                 </View>
 

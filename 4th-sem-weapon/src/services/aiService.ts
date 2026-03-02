@@ -2,12 +2,7 @@
 // Handles all communication with the Groq LLM API (Llama 3)
 
 import { getLocalKnowledgeContext } from './knowledgeService';
-
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY || '';
-
-// Debug: verify the key is loading
-console.log('🔑 Groq API Key loaded:', GROQ_API_KEY ? `${GROQ_API_KEY.substring(0, 8)}...` : '❌ MISSING! Restart Expo with: npx expo start -c');
+import { GROQ_API_URL, GROQ_API_KEY, GROQ_MODEL } from './aiConfig';
 
 export interface ChatMessage {
     role: 'system' | 'user' | 'assistant';
@@ -107,7 +102,7 @@ export async function sendMessageToOracle(
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+                model: GROQ_MODEL,
                 messages,
                 temperature: 0.7,
                 max_tokens: 1024,

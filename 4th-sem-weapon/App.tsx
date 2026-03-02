@@ -20,7 +20,7 @@ import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import QuestLogScreen from './src/screens/QuestLogScreen';
 import AddQuestScreen from './src/screens/AddQuestScreen';
-import FocusScreen from './src/screens/FocusScreen';
+import UploadScreen from './src/screens/UploadScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import OracleProcessingScreen from './src/screens/OracleProcessingScreen';
 import SystemRecalibrationScreen from './src/screens/SystemRecalibrationScreen';
@@ -107,9 +107,9 @@ function MainTabs() {
       {/* 🌟 THE CENTER UPLOAD ANCHOR */}
       <Tab.Screen
         name="Upload"
-        component={() => <PlaceholderScreen name="Upload" />}
+        component={UploadScreen}
         options={{
-          tabBarLabel: () => null, // Hide the text so the button can be bigger
+          tabBarLabel: () => null,
           tabBarIcon: () => (
             <View
               className="bg-[#6B8E23] w-14 h-14 rounded-full items-center justify-center shadow-lg -mt-6 border-4"
@@ -179,7 +179,6 @@ export default function App() {
                     <Stack.Screen name="OracleProcessing" component={OracleProcessingScreen} />
                     <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
                     <Stack.Screen name="Settings" component={SettingsScreen} />
-                    <Stack.Screen name="Focus" component={FocusScreen} options={{ presentation: 'modal' }} />
                     <Stack.Screen name="SystemRecalibration" component={SystemRecalibrationScreen} />
                     <Stack.Screen name="TopicDetail" component={TopicDetailScreen} />
                     <Stack.Screen name="CustomizePath" component={CustomizePathScreen} />

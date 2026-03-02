@@ -19,25 +19,21 @@ export default function DashboardScreen() {
     const navigation = useNavigation<any>();
     const { mentorState, isLoading: mentorLoading } = useMentor();
 
+    const [isLoadingPlayer, setIsLoadingPlayer] = useState(true);
+
     useEffect(() => {
         async function syncPlayerToDatabase() {
             try {
-                if (!user) {
-                    console.log('❌ Dashboard: No user object');
-                    return;
-                }
-                console.log('👤 Dashboard: User ID:', user.id, 'Name:', user.firstName);
+                if (!user) return;
 
                 const clerkToken = await getToken({ template: 'Supabase' });
-                console.log('🔑 Dashboard: Token received:', clerkToken ? 'YES (' + clerkToken.substring(0, 20) + '...)' : '❌ NULL');
-
                 if (!clerkToken) {
-                    Alert.alert('⚠️ Token Error', 'Clerk JWT template "Supabase" returned null. Check your Clerk Dashboard > JWT Templates.');
+                    console.error('❌ Dashboard: Clerk JWT returned null');
+                    setIsLoadingPlayer(false);
                     return;
                 }
 
                 const supabase = createClerkSupabaseClient(clerkToken);
-                console.log('🔌 Dashboard: Supabase client created');
 
                 const { data: existingPlayer, error: fetchError } = await supabase
                     .from('player_stats')
@@ -45,17 +41,12 @@ export default function DashboardScreen() {
                     .eq('clerk_user_id', user.id)
                     .single();
 
-                console.log('📊 Dashboard: SELECT result:', JSON.stringify({ existingPlayer, fetchError }));
-
                 if (fetchError && fetchError.code !== 'PGRST116') {
-                    // PGRST116 = "no rows returned" which is expected for new users
-                    console.error('❌ Dashboard: SELECT error:', JSON.stringify(fetchError));
-                    Alert.alert('⚠️ DB Read Error', `Code: ${fetchError.code}\nMessage: ${fetchError.message}`);
+                    console.error('❌ Dashboard: DB error:', fetchError.code);
                 }
 
                 if (!existingPlayer) {
-                    console.log("🆕 New player detected. Redirecting to onboarding...");
-                    // Insert minimal player row, then redirect to onboarding
+                    // New player → insert minimal row, redirect to onboarding
                     const { data: newPlayer, error: insertError } = await supabase
                         .from('player_stats')
                         .insert({
@@ -69,29 +60,64 @@ export default function DashboardScreen() {
                         .select()
                         .single();
 
-                    console.log('📊 Dashboard: INSERT result:', JSON.stringify({ newPlayer, insertError }));
-
                     if (insertError) {
-                        Alert.alert('⚠️ DB Write Error', `Code: ${insertError.code}\nMessage: ${insertError.message}\nDetails: ${insertError.details}`);
+                        console.error('❌ Dashboard: Insert failed:', insertError.code);
                     } else {
-                        console.log('✅ Dashboard: Player created. Redirecting to onboarding...');
                         setPlayerStats(newPlayer);
                         navigation.replace('Onboarding');
                         return;
                     }
                 } else {
-                    // Existing player — check if onboarding is done
+                    // Existing player — check onboarding
                     if (!existingPlayer.has_completed_onboarding) {
-                        console.log('📋 Dashboard: Onboarding not completed. Redirecting...');
                         navigation.replace('Onboarding');
                         return;
                     }
-                    console.log("✅ Welcome Back, Player!");
+
+                    // --- STREAK TRACKING ---
+                    const now = new Date();
+                    const lastActive = existingPlayer.last_active_at ? new Date(existingPlayer.last_active_at) : null;
+                    let newStreak = existingPlayer.streak_days || 0;
+
+                    if (lastActive) {
+                        const msPerDay = 1000 * 60 * 60 * 24;
+                        // zero out time to just compare dates
+                        const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                        const lastActiveDate = new Date(lastActive.getFullYear(), lastActive.getMonth(), lastActive.getDate());
+
+                        const diffDays = Math.floor((todayDate.getTime() - lastActiveDate.getTime()) / msPerDay);
+
+                        if (diffDays === 1) {
+                            newStreak += 1; // Logged in next day, increase streak
+                        } else if (diffDays > 1) {
+                            newStreak = 1; // Skipped a day, reset streak
+                        }
+                    } else {
+                        newStreak = 1; // First time playing
+                    }
+
+                    const isSameDay = lastActive && lastActive.toDateString() === now.toDateString();
+
+                    if (!isSameDay) {
+                        // Update DB with new streak and last_active_at
+                        await supabase
+                            .from('player_stats')
+                            .update({
+                                last_active_at: now.toISOString(),
+                                streak_days: newStreak
+                            })
+                            .eq('clerk_user_id', user.id);
+
+                        existingPlayer.streak_days = newStreak;
+                        existingPlayer.last_active_at = now.toISOString();
+                    }
+
                     setPlayerStats(existingPlayer);
                 }
             } catch (err: any) {
-                console.error('💥 Dashboard: Unexpected error:', err);
-                Alert.alert('💥 Sync Error', err.message || String(err));
+                console.error('💥 Dashboard: Sync error:', err.message);
+            } finally {
+                setIsLoadingPlayer(false);
             }
         }
         syncPlayerToDatabase();
@@ -112,6 +138,17 @@ export default function DashboardScreen() {
     const insightTitle = mentorState?.insight?.title || 'Focus on Consistency';
     const insightMessage = mentorState?.insight?.message || 'Complete today\'s primary mission to stay on track.';
     const mentorGreeting = mentorState?.mentorMessage || '"Consistency is the path to mastery."';
+
+    if (isLoadingPlayer) {
+        return (
+            <SafeAreaView className="flex-1 bg-background-light dark:bg-background-dark items-center justify-center">
+                <ActivityIndicator size="large" color="#6B8E23" />
+                <Text className="text-text-muted mt-4 font-mono text-xs uppercase tracking-widest text-primary/70">
+                    Calibrating System...
+                </Text>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView className="flex-1 bg-background-light dark:bg-background-dark">
